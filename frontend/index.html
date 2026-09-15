@@ -339,6 +339,7 @@
     flex: none; width: 32px; height: 32px; border-radius: var(--radius-sm);
     display: flex; align-items: center; justify-content: center;
     font-family: "Sora", sans-serif; font-weight: 700; font-size: 13px; color: #fff;
+    object-fit: cover;
   }
   .t-biz-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .t-biz-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -391,6 +392,7 @@
     flex: none; width: 44px; height: 44px; border-radius: var(--radius);
     display: flex; align-items: center; justify-content: center;
     font-family: "Sora", sans-serif; font-weight: 700; font-size: 18px; color: #fff;
+    object-fit: cover;
   }
   .drawer-title { font-family: "Sora", sans-serif; font-weight: 700; font-size: 18px; line-height: 1.2; }
   .drawer-meta { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 3px; }
@@ -611,6 +613,8 @@
         <label class="launch-field">
           <span>Token image (optional, direct https:// link)</span>
           <input class="search-input" id="newBizLogoUrl" placeholder="https://example.com/logo.png">
+          <img id="newBizLogoPreview" alt="" hidden style="width:40px;height:40px;border-radius:8px;object-fit:cover;margin-top:6px;">
+          <span id="newBizLogoPreviewHint" class="launch-hint" hidden style="margin-top:6px;"></span>
         </label>
         <label class="launch-field launch-field-wide">
           <span>Description</span>
@@ -742,6 +746,12 @@
   // is also still appended to the description for visibility in UIs that
   // show description more prominently than the website field.
   var PROJECT_URL = "https://www.storestocks.xyz/";
+  // Every token launched from this site also carries this fixed X (Twitter)
+  // profile link in socials.twitter — supplied directly by the site owner,
+  // not scraped from any doc/repo, so it doesn't trip the address/link
+  // provenance rule below. Unlike socials.website (below), there was never
+  // a technical blocker to setting this; it just hadn't been added yet.
+  var PROJECT_X_URL = "https://x.com/StoreStocksRH";
   // Every token launched from this site sets both of these directly in
   // TokenParams, verified against the live factory's source:
   //   - creatorFeeRecipient: PonsV2LaunchFactory._launchToken() uses this
@@ -863,6 +873,35 @@
     var trimmed = (name || "").trim();
     return trimmed ? trimmed.charAt(0).toUpperCase() : "?";
   }
+  // The image someone attaches during launch (TokenParams.logo on-chain)
+  // is stored on that business's *launch* record, not the business record
+  // itself — businesses/{id} is create-only in firestore.rules, so a
+  // quick-launch on an already-listed business (which asks for the image
+  // after the listing already exists) has nowhere else to put it. Falls
+  // back to the plain color-and-initial chip when there's no image, or if
+  // the image URL fails to load.
+  function avatarHtml(b, cls, launch) {
+    cls = cls || "t-biz-avatar";
+    var logoUrl = launch && launch.logoUrl;
+    if (logoUrl) {
+      return '<img class="' + cls + '" src="' + esc(logoUrl) + '" alt="" loading="lazy" ' +
+        'data-name="' + esc(b.name) + '" data-cls="' + cls + '" onerror="avatarImgError(this)">';
+    }
+    return '<div class="' + cls + '" style="background:' + avatarColor(b.name) + ';">' + esc(initialFor(b.name)) + '</div>';
+  }
+  function avatarImgError(img) {
+    var div = document.createElement("div");
+    div.className = img.getAttribute("data-cls") || "t-biz-avatar";
+    var name = img.getAttribute("data-name") || "";
+    div.style.background = avatarColor(name);
+    div.textContent = initialFor(name);
+    img.replaceWith(div);
+  }
+  // Everything in this file runs inside one IIFE, so the inline
+  // onerror="avatarImgError(this)" attribute above (which resolves names
+  // against the global scope, not this closure) needs an explicit escape
+  // hatch onto window to find it.
+  window.avatarImgError = avatarImgError;
   function emailDomain(email) {
     var m = /@([^@\s]+)$/.exec((email || "").trim().toLowerCase());
     return m ? m[1] : null;
@@ -1301,6 +1340,41 @@
   }
   document.getElementById("newBizName").addEventListener("input", updateNewBizSymbolPreview);
 
+  // Live preview of the token image while the user is typing/pasting the
+  // URL, so "is my image going to show up" is answered before they ever
+  // sign a transaction — this was the exact thing reported missing.
+  function updateNewBizLogoPreview() {
+    var img = document.getElementById("newBizLogoPreview");
+    var hint = document.getElementById("newBizLogoPreviewHint");
+    var raw = document.getElementById("newBizLogoUrl").value;
+    var check = validateLogoUrl(raw);
+    if (!raw.trim()) {
+      img.hidden = true;
+      img.removeAttribute("src");
+      hint.hidden = true;
+      return;
+    }
+    if (!check.ok) {
+      img.hidden = true;
+      img.removeAttribute("src");
+      hint.hidden = false;
+      hint.className = "launch-hint warn";
+      hint.textContent = check.reason;
+      return;
+    }
+    hint.hidden = false;
+    hint.className = "launch-hint ok";
+    hint.textContent = "Looks good — this image will show on your token everywhere on this site.";
+    img.hidden = false;
+    img.src = check.url;
+    img.onerror = function () {
+      img.hidden = true;
+      hint.className = "launch-hint warn";
+      hint.textContent = "That link didn't load as an image — make sure it's a direct link to an image file (ending in .png/.jpg/.gif/etc), not a webpage that merely shows one.";
+    };
+  }
+  document.getElementById("newBizLogoUrl").addEventListener("input", updateNewBizLogoPreview);
+
   document.getElementById("mapsPrefillBtn").addEventListener("click", function () {
     var input = document.getElementById("mapsUrlInput");
     var hint = document.getElementById("mapsHint");
@@ -1324,6 +1398,7 @@
       ? ("Local business" + (parsed.city ? " in " + parsed.city : "") + ". Unofficial community token — add more detail here if you'd like.")
       : "";
     updateNewBizSymbolPreview();
+    updateNewBizLogoPreview();
 
     var found = [];
     if (parsed.name) found.push("the name");
@@ -1397,7 +1472,7 @@
         // (verified against its deployed source — unlike the older
         // contract this project first pointed at, which wiped this field),
         // so this is a genuine on-chain link, not a no-op.
-        socials: { twitter: "", telegram: "", discord: "", website: PROJECT_URL, farcaster: "" },
+        socials: { twitter: PROJECT_X_URL, telegram: "", discord: "", website: PROJECT_URL, farcaster: "" },
         creatorFeeRecipient: PLATFORM_FEE_WALLET,
         creatorTaxBps: CREATOR_TAX_BPS,
         buybackEnabled: false,
@@ -1419,7 +1494,7 @@
         } catch (e) {}
       }
 
-      var launchRecord = { txHash: tx.hash, tokenAddress: tokenAddress, launchedBy: state.wallet, launchedAt: new Date().toISOString() };
+      var launchRecord = { txHash: tx.hash, tokenAddress: tokenAddress, launchedBy: state.wallet, launchedAt: new Date().toISOString(), logoUrl: logoCheck.url || null };
       if (db) {
         await db.doc("businesses/" + newId).set(newBiz);
         await db.doc("launches/" + newId).set(launchRecord);
@@ -1533,7 +1608,7 @@
 
     var html =
       '<div class="drawer-head">' +
-        '<div class="drawer-avatar" style="background:' + avatarColor(b.name) + ';">' + esc(initialFor(b.name)) + '</div>' +
+        avatarHtml(b, "drawer-avatar", launch) +
         '<div>' +
           '<div class="drawer-title">' + esc(b.name) + '</div>' +
           '<div class="drawer-meta">' + esc(b.category || "Uncategorized") + (b.city ? " · " + esc(b.city) : "") + '</div>' +
@@ -1614,7 +1689,7 @@
     var row =
       '<div class="t-row" data-row-id="' + b.id + '">' +
         '<div class="t-biz">' +
-          '<div class="t-biz-avatar" style="background:' + avatarColor(b.name) + ';">' + esc(initialFor(b.name)) + '</div>' +
+          avatarHtml(b, "t-biz-avatar", launch) +
           '<div class="t-biz-info"><span class="t-biz-name">' + esc(b.name) + '</span><span class="t-biz-meta">' + esc(b.city) + '</span></div>' +
         '</div>' +
         '<span class="t-sym ' + status + '">$' + symbol + '</span>' +
@@ -1702,7 +1777,7 @@
     list.innerHTML = rows.map(function (row) {
       var b = row.b, l = row.l;
       return '<div class="port-row">' +
-        '<div class="t-biz-avatar" style="background:' + avatarColor(b.name) + ';">' + esc(initialFor(b.name)) + '</div>' +
+        avatarHtml(b, "t-biz-avatar", l) +
         '<div class="port-row-info">' +
           '<span class="port-row-name">' + esc(b.name) + '</span>' +
           '<span class="port-row-meta">' + short(l.launchedBy || "") + (l.launchedAt ? ' · ' + timeAgo(l.launchedAt) : '') + (l.registeredManually ? ' · registered manually' : '') + '</span>' +
@@ -1766,7 +1841,7 @@
             launched.map(function (b) {
               var l = state.launches[b.id];
               return '<div class="port-row">' +
-                '<div class="t-biz-avatar" style="background:' + avatarColor(b.name) + ';">' + esc(initialFor(b.name)) + '</div>' +
+                avatarHtml(b, "t-biz-avatar", l) +
                 '<div class="port-row-info"><span class="port-row-name">' + esc(b.name) + '</span><span class="port-row-meta">$' + deriveSymbol(b.name) + ' · launched ' + timeAgo(l.launchedAt) + '</span></div>' +
                 '<div class="port-row-action"><button class="btn btn-outline btn-small" data-action="view-business" data-id="' + b.id + '">View</button></div>' +
               '</div>';
@@ -1781,7 +1856,7 @@
           '<div class="port-list">' +
             payouts.map(function (row) {
               return '<div class="port-row">' +
-                '<div class="t-biz-avatar" style="background:' + avatarColor(row.b.name) + ';">' + esc(initialFor(row.b.name)) + '</div>' +
+                avatarHtml(row.b, "t-biz-avatar", state.launches[row.b.id]) +
                 '<div class="port-row-info"><span class="port-row-name">' + esc(row.b.name) + '</span><span class="port-row-meta">fees reassigned here via pons.family’s Community Takeover</span></div>' +
                 '<div class="port-row-action"><button class="btn btn-outline btn-small" data-action="view-business" data-id="' + row.b.id + '">View</button></div>' +
               '</div>';
@@ -1990,7 +2065,7 @@
           symbol: deriveSymbol(business.name),
           logo: quickLogoCheck.url,
           description: business.description + " Unofficial community token launched via " + PROJECT_NAME + " (" + PROJECT_URL + ") — not created by or affiliated with the business.",
-          socials: { twitter: "", telegram: "", discord: "", website: PROJECT_URL, farcaster: "" },
+          socials: { twitter: PROJECT_X_URL, telegram: "", discord: "", website: PROJECT_URL, farcaster: "" },
           creatorFeeRecipient: PLATFORM_FEE_WALLET,
           creatorTaxBps: CREATOR_TAX_BPS,
           buybackEnabled: false,
@@ -2012,15 +2087,11 @@
           } catch (e2) {}
         }
 
+        var quickLaunchRecord = { txHash: tx.hash, tokenAddress: tokenAddress, launchedBy: state.wallet, launchedAt: new Date().toISOString(), logoUrl: quickLogoCheck.url || null };
         if (db) {
-          await db.doc("launches/" + id).set({
-            txHash: tx.hash,
-            tokenAddress: tokenAddress,
-            launchedBy: state.wallet,
-            launchedAt: new Date().toISOString()
-          });
+          await db.doc("launches/" + id).set(quickLaunchRecord);
         } else {
-          state.launches[id] = { txHash: tx.hash, tokenAddress: tokenAddress, launchedBy: state.wallet, launchedAt: new Date().toISOString() };
+          state.launches[id] = quickLaunchRecord;
         }
         renderTable();
         renderStats();

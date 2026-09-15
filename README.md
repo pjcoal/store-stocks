@@ -189,6 +189,63 @@ With that corrected, the three asks:
    this runs at any real volume, same as the existing advice below already
    says for the business-listing side of things.
 
+### Update — token image actually displays on-site, a fixed X link on every token, and why Google Maps auto-fill can't pull photos/website
+
+Three follow-on asks after the update above:
+
+1. **The token image wasn't showing up anywhere on the site itself.** The
+   prior update fed the image URL into `TokenParams.logo` on-chain (so
+   wallets/explorers that read that field would show it), but nothing in
+   `frontend/index.html` ever read it back — every avatar on the site
+   (listing rows, the drawer, the launch log, the portfolio tab) always
+   rendered the generated initial-letter placeholder, never an uploaded
+   image, launched or not. Fixed by: storing the validated image URL on the
+   `launches/{id}` record as `logoUrl` (the `businesses/{id}` doc can't
+   carry it — it's create-only, see `backend/firestore.rules`, and an
+   already-listed business's doc can't be retrofitted after the fact — but
+   a fresh `launches/{id}` doc is always written at launch time either
+   way); and a new `avatarHtml()` helper, used at every one of the site's
+   avatar-rendering spots, that renders an `<img>` when a launch has a
+   `logoUrl` and falls back to the same colored-initial placeholder
+   otherwise (with an `onerror` handler so a dead image link degrades to
+   the placeholder instead of a broken-image icon). `backend/firestore.rules`
+   `isValidLaunch()` was updated to allow this new `logoUrl` field
+   (nullable string, `https://` + 500-char cap, mirroring
+   `validateLogoUrl()` client-side) — **this rules file needs a manual
+   redeploy via the Firebase console for the new field to actually be
+   accepted**, same as the still-pending `lat`/`lng` rules change from
+   earlier. Also added a live preview (image thumbnail + ok/warn hint)
+   right under the "Token image" field on the launch form, so a launcher
+   sees before they ever sign a transaction whether their link is going to
+   render.
+2. **A fixed X (Twitter) link on every token.** `socials.twitter` is now
+   set to `https://x.com/StoreStocksRH` on every launch from this site
+   (`PROJECT_X_URL` in `frontend/index.html`), the same way `socials.website`
+   already gets set to storestocks.xyz. Unlike the website field, there was
+   never a contract-level obstacle here — `PonsV2LauncherToken` stores the
+   whole `Socials` struct as given (see above) — it simply hadn't been
+   wired up yet.
+3. **Auto-filling "business links" (photos/website) from a pasted Google
+   Maps link — not done, and likely not possible without a real API
+   integration.** `parseGoogleMapsUrl()` only reads what's already sitting
+   in the URL's own text: a `/place/<name>/@lat,lng` segment and an opaque
+   place-ID token. A Google Maps *place* URL does not embed a website URL
+   or photo URLs anywhere in its text — those only exist server-side,
+   behind Google's Places API (Place Details for the website, Place Photos
+   for images), which this site does not call, on purpose: every existing
+   "prefill" hint on the launch form says outright "pulled straight from
+   the link text — no outside request was made," which is a real,
+   deliberate design choice (no API key to manage/pay for, no third-party
+   request made with a visitor's data). Actually fulfilling this request
+   would mean adding a genuine Google Places API integration — a paid,
+   keyed, server-side (or at least API-key-in-the-client) dependency this
+   site doesn't have today, and a real reversal of that "no outside
+   request" design. That's a decision for the site owner, not something to
+   guess at silently; it hasn't been built, and needs an explicit go/no-go
+   (and, if yes, an API key and a decision on where that key lives, since a
+   Places key embedded in this static frontend is visible to anyone) before
+   it should be.
+
 ## Setup
 
 ```bash

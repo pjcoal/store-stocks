@@ -68,12 +68,17 @@ service cloud.firestore {
     }
 
     function isValidLaunch(d) {
-      return d.keys().hasOnly(['txHash','tokenAddress','launchedBy','launchedAt','registeredManually'])
+      return d.keys().hasOnly(['txHash','tokenAddress','launchedBy','launchedAt','registeredManually','logoUrl'])
         && d.txHash is string && d.txHash.matches('^0x[0-9a-fA-F]{64}$')
         && (d.tokenAddress == null || (d.tokenAddress is string && d.tokenAddress.matches('^0x[0-9a-fA-F]{40}$')))
         && d.launchedBy is string && d.launchedBy.matches('^0x[0-9a-fA-F]{40}$')
         && d.launchedAt is string
-        && (!('registeredManually' in d) || d.registeredManually is bool);
+        && (!('registeredManually' in d) || d.registeredManually is bool)
+        // The token image URL shown on this site (frontend/index.html
+        // avatarHtml()); nullable since a launch without an image is still
+        // valid. Same https:// + 500-char cap as the client's own
+        // validateLogoUrl(), which is what produces this value.
+        && (!('logoUrl' in d) || d.logoUrl == null || (d.logoUrl is string && d.logoUrl.matches('^https://.*') && d.logoUrl.size() < 500));
     }
 
     function isValidNewClaim(d) {
