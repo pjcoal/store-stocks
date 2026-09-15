@@ -1,0 +1,15 @@
+{
+  "name": "store-stocks",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Store Stocks — unofficial community-token directory for pons.family (Robinhood Chain). Monorepo: frontend/ (the site), backend/ (Firestore rules), lib/scripts/data (operator tooling).",
+  "main": "lib/ponsFactory.js",
+  "scripts": {
+    "launch": "node scripts/launch_token.js",
+    "source": "python3 scripts/source_businesses.py",
+    "deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes --config backend/firebase.json"
+  },
+  "dependencies": {
+    "ethers": "^6.13.0"
+  }
+}

@@ -1,0 +1,46 @@
+[
+  {
+    "id": "demo-1",
+    "name": "Example Coffee Roasters",
+    "category": "Coffee shop",
+    "city": "Bristol, UK",
+    "isFictionalDemo": true,
+    "description": "Fictional demo entry for testing the directory UI. Not a real business.",
+    "logoUrl": "",
+    "socials": { "website": "", "twitter": "", "telegram": "", "discord": "", "farcaster": "" },
+    "claim": { "status": "unclaimed", "claimedBy": null, "requestedAt": null }
+  },
+  {
+    "id": "demo-2",
+    "name": "Sample Hardware & Tools",
+    "category": "Hardware store",
+    "city": "Leeds, UK",
+    "isFictionalDemo": true,
+    "description": "Fictional demo entry for testing the directory UI. Not a real business.",
+    "logoUrl": "",
+    "socials": { "website": "", "twitter": "", "telegram": "", "discord": "", "farcaster": "" },
+    "claim": { "status": "unclaimed", "claimedBy": null, "requestedAt": null }
+  },
+  {
+    "id": "demo-3",
+    "name": "Placeholder Pizza Co",
+    "category": "Restaurant",
+    "city": "Manchester, UK",
+    "isFictionalDemo": true,
+    "description": "Fictional demo entry for testing the directory UI. Not a real business.",
+    "logoUrl": "",
+    "socials": { "website": "", "twitter": "", "telegram": "", "discord": "", "farcaster": "" },
+    "claim": { "status": "unclaimed", "claimedBy": null, "requestedAt": null }
+  },
+  {
+    "id": "demo-4",
+    "name": "Test Bookshop & Cafe",
+    "category": "Bookshop",
+    "city": "Edinburgh, UK",
+    "isFictionalDemo": true,
+    "description": "Fictional demo entry for testing the directory UI. Not a real business.",
+    "logoUrl": "",
+    "socials": { "website": "", "twitter": "", "telegram": "", "discord": "", "farcaster": "" },
+    "claim": { "status": "unclaimed", "claimedBy": null, "requestedAt": null }
+  }
+]

@@ -1,0 +1,132 @@
+rules_version = '2';
+
+// Store Stocks — Firestore security rules.
+//
+// There is no login system on this site (see README "Security note" in the
+// project root), so these rules do the only thing that's honestly possible
+// without one: enforce that every document has the right shape and types,
+// and lock down which transitions are legal. They do NOT verify that a
+// write's claims are true (e.g. that a "launch" doc really corresponds to a
+// real on-chain transaction) — the site itself does that verification
+// before writing (see frontend/index.html: register-launch reads the real
+// transaction receipt before calling db.doc("launches/...").set(...)).
+// Anyone with the browser devtools open can still write directly to this
+// database bypassing that check, same as anyone could edit the site's own
+// in-memory state before this backend existed. Real access control (e.g.
+// gating admin actions to a specific wallet, via Firebase Auth + custom
+// claims) is a follow-up, tracked in the root README's roadmap.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------------- businesses ----------------
+    // Written once, at creation, by the "Launch a token" flow or the
+    // register-launch flow. Never updated or deleted by the site.
+    match /businesses/{id} {
+      allow read: if true;
+      allow create: if isValidBusiness(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    // ---------------- launches ----------------
+    // One doc per business that has a token. Always a full set() from the
+    // site, written only after it has verified a real on-chain receipt.
+    // A launch is immutable once recorded — the site never overwrites one.
+    match /launches/{id} {
+      allow read: if true;
+      allow create: if isValidLaunch(request.resource.data) && !exists(/databases/$(database)/documents/launches/$(id));
+      allow update, delete: if false;
+    }
+
+    // ---------------- claims ----------------
+    // Submitted by a visitor (status: pending), then moved along by
+    // whoever reviews the admin screen (claimed / dismissed), optionally
+    // followed by a payout wallet being attached once claimed.
+    match /claims/{id} {
+      allow read: if true;
+      allow create: if isValidNewClaim(request.resource.data);
+      allow update: if isValidClaimTransition(resource.data, request.resource.data);
+      allow delete: if false;
+    }
+
+    // ---------------- helpers ----------------
+    function isValidBusiness(d) {
+      return d.keys().hasOnly(['id','name','category','city','website','mapX','mapY','description','mapsUrl','placeRef','createdAt'])
+        && d.id is string && d.id.size() > 0 && d.id.size() < 100
+        && d.name is string && d.name.size() > 0 && d.name.size() < 140
+        && d.category is string && d.category.size() < 60
+        && d.city is string && d.city.size() < 100
+        && d.website is string && d.website.size() < 200
+        && d.mapX is number && d.mapX >= 0 && d.mapX <= 100
+        && d.mapY is number && d.mapY >= 0 && d.mapY <= 100
+        && d.description is string && d.description.size() < 2000
+        && d.mapsUrl is string && d.mapsUrl.size() < 500
+        && (d.placeRef == null || (d.placeRef is string && d.placeRef.size() < 200))
+        && d.createdAt is string;
+    }
+
+    function isValidLaunch(d) {
+      return d.keys().hasOnly(['txHash','tokenAddress','launchedBy','launchedAt','registeredManually'])
+        && d.txHash is string && d.txHash.matches('^0x[0-9a-fA-F]{64}$')
+        && (d.tokenAddress == null || (d.tokenAddress is string && d.tokenAddress.matches('^0x[0-9a-fA-F]{40}$')))
+        && d.launchedBy is string && d.launchedBy.matches('^0x[0-9a-fA-F]{40}$')
+        && d.launchedAt is string
+        && (!('registeredManually' in d) || d.registeredManually is bool);
+    }
+
+    function isValidNewClaim(d) {
+      return d.keys().hasOnly(['status','email','domainMatch','note','requestedAt'])
+        && d.status == 'pending'
+        && isFreshClaimFields(d);
+    }
+
+    // The claim panel lets a visitor resubmit/edit their request while it's
+    // still pending, so "pending -> pending" has to stay open too, not just
+    // the reviewer transitions. Whenever the request fields (email/note/
+    // requestedAt/domainMatch) are allowed to change, isFreshClaimFields()
+    // re-validates them exactly like a new submission would be.
+    function isFreshClaimFields(d) {
+      return d.email is string && d.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$') && d.email.size() < 200
+        && (d.domainMatch == null || d.domainMatch is bool)
+        && d.note is string && d.note.size() < 1000
+        && d.requestedAt is string;
+    }
+
+    function isValidClaimTransition(before, after) {
+      return
+        // still-pending edit/resubmit — request fields can change freely
+        (
+          before.status == 'pending' && after.status == 'pending'
+          && isFreshClaimFields(after)
+          && after.keys().hasOnly(['status','email','domainMatch','note','requestedAt'])
+        )
+        ||
+        // reviewed: pending -> claimed or dismissed; request fields frozen
+        (
+          before.status == 'pending'
+          && (after.status == 'claimed' || after.status == 'dismissed')
+          && before.email == after.email && before.note == after.note
+          && before.requestedAt == after.requestedAt && before.domainMatch == after.domainMatch
+          && after.reviewedAt is string
+          && after.keys().hasOnly(['status','email','domainMatch','note','requestedAt','reviewedAt'])
+        )
+        ||
+        // a previously-dismissed claim reopened by a fresh submission
+        (
+          before.status == 'dismissed' && after.status == 'pending'
+          && isFreshClaimFields(after)
+          && after.keys().hasOnly(['status','email','domainMatch','note','requestedAt'])
+        )
+        ||
+        // payout wallet attached to an already-claimed listing; everything
+        // else about the claim is frozen at this point
+        (
+          before.status == 'claimed' && after.status == 'claimed'
+          && before.email == after.email && before.note == after.note
+          && before.requestedAt == after.requestedAt && before.domainMatch == after.domainMatch
+          && after.payoutWallet is string && after.payoutWallet.matches('^0x[0-9a-fA-F]{40}$')
+          && after.payoutWalletSetAt is string
+          && after.keys().hasOnly(['status','email','domainMatch','note','requestedAt','reviewedAt','payoutWallet','payoutWalletSetAt'])
+        );
+    }
+  }
+}

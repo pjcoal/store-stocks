@@ -1,0 +1,1908 @@
+<title>Store Stocks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.17.0/ethers.umd.min.js"></script>
+<!--
+  Firebase (compat SDK) — only used when this page is NOT running inside a
+  Cowork Artifact (see firebaseConfig + initDb() below). If you're viewing
+  this inside claude.ai's Artifact preview, window.claude.use("db") is used
+  instead and these two scripts are simply unused.
+-->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+
+<style>
+  :root {
+    --bg: #f5f7f5;
+    --panel: #ffffff;
+    --panel-2: #eef1ee;
+    --ink: #10150f;
+    --ink-dim: #5b6660;
+    --hairline: #dde3de;
+    --accent: #1a8f4d;
+    --accent-ink: #f4fbf6;
+    --pending: #b06a13;
+    --danger: #b23327;
+    --nav-bg: #0d1210;
+    --nav-ink: #eef2ee;
+    --shadow: 0 1px 2px rgba(16, 21, 15, 0.06);
+    --shadow-md: 0 6px 20px rgba(16, 21, 15, 0.09);
+    --shadow-lg: 0 20px 48px rgba(16, 21, 15, 0.16);
+    --radius-sm: 6px;
+    --radius: 10px;
+    --radius-lg: 18px;
+    /* spacing scale — 4px base unit */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+    --space-7: 48px;
+    --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+    --dur-fast: 0.12s;
+    --dur: 0.18s;
+    color-scheme: light;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0a0d0b;
+      --panel: #121613;
+      --panel-2: #181e1a;
+      --ink: #eef2ee;
+      --ink-dim: #8b968f;
+      --hairline: #212824;
+      --accent: #3ecf6e;
+      --accent-ink: #06170c;
+      --pending: #f0a942;
+      --danger: #ef6a5f;
+      --nav-bg: #0a0d0b;
+      --nav-ink: #eef2ee;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+      --shadow-md: 0 8px 28px rgba(0, 0, 0, 0.4);
+      --shadow-lg: 0 24px 56px rgba(0, 0, 0, 0.55);
+      color-scheme: dark;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0a0d0b;
+    --panel: #121613;
+    --panel-2: #181e1a;
+    --ink: #eef2ee;
+    --ink-dim: #8b968f;
+    --hairline: #212824;
+    --accent: #3ecf6e;
+    --accent-ink: #06170c;
+    --pending: #f0a942;
+    --danger: #ef6a5f;
+    --nav-bg: #0a0d0b;
+    --nav-ink: #eef2ee;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 8px 28px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 24px 56px rgba(0, 0, 0, 0.55);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Manrope", ui-sans-serif, system-ui, sans-serif;
+    padding-inline: max(16px, env(safe-area-inset-left, 0px));
+    padding-block: 0 56px;
+  }
+
+  .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+  .display { font-family: "Sora", ui-sans-serif, sans-serif; font-weight: 700; text-wrap: balance; }
+
+  .wrap { max-width: 1160px; margin: 0 auto; }
+  .stack { display: flex; flex-direction: column; gap: 22px; }
+
+  a { color: inherit; }
+
+  /* ---------- nav ---------- */
+  .navbar {
+    background: var(--nav-bg);
+    color: var(--nav-ink);
+    margin: 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))) 0;
+    padding-block: 14px;
+    padding-inline: max(16px, env(safe-area-inset-left, 0px));
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 5;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .brand { display: flex; align-items: center; gap: 9px; }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 8px;
+    object-fit: cover;
+    display: block;
+    flex-shrink: 0;
+  }
+  .brand-name { font-family: "Sora", sans-serif; font-weight: 700; font-size: 16.5px; color: var(--nav-ink); }
+  .nav-links { display: flex; gap: 4px; align-items: center; }
+  .nav-link {
+    display: flex; align-items: center; gap: 6px;
+    color: rgba(238,242,238,0.72);
+    text-decoration: none;
+    font-size: 13px; font-weight: 600;
+    padding: 7px 11px; border-radius: 999px;
+  }
+  .nav-link:hover { background: rgba(255,255,255,0.06); color: var(--nav-ink); }
+  .nav-link svg { width: 15px; height: 15px; }
+
+  .btn {
+    font-family: "Manrope", sans-serif;
+    font-weight: 700;
+    font-size: 13.5px;
+    border: 1.5px solid var(--ink);
+    background: var(--ink);
+    color: var(--bg);
+    padding: 10px 18px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: transform 0.08s ease, opacity 0.15s ease;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+  .btn-outline { background: transparent; color: var(--ink); }
+  .btn-accent { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn-small { padding: 7px 13px; font-size: 12px; }
+  .btn-nav { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn:focus-visible, a:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+
+  .chip { font-family: "JetBrains Mono", monospace; font-size: 11px; padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(238,242,238,0.25); color: rgba(238,242,238,0.8); }
+  .chip-live { border-color: var(--accent); color: var(--accent); }
+  .chip-warn { border-color: var(--danger); color: var(--danger); }
+
+  /* ---------- hero ---------- */
+  .hero { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; padding-block: 40px 30px; }
+  .eyebrow { font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); display: flex; align-items: center; gap: 7px; }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  .hero-title { font-size: clamp(32px, 4.4vw, 50px); line-height: 1.04; margin: 12px 0 16px; }
+  .hero-sub { font-size: 15px; line-height: 1.6; color: var(--ink-dim); max-width: 46ch; }
+  .hero-actions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+  .hero-legal { font-family: "JetBrains Mono", monospace; font-size: 10.5px; letter-spacing: 0.05em; color: var(--ink-dim); margin-top: 14px; text-transform: uppercase; }
+
+  /* ---------- map ---------- */
+  .map-panel {
+    position: relative;
+    aspect-ratio: 4 / 3.1;
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--nav-bg);
+    border: 1px solid var(--hairline);
+    box-shadow: var(--shadow);
+  }
+  .map-panel svg.streets { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .pin {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    width: 15px; height: 15px;
+    border-radius: 50%;
+    border: 2px solid var(--nav-bg);
+    cursor: pointer;
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.08);
+  }
+  .pin::after {
+    content: attr(data-sym);
+    position: absolute;
+    top: -22px; left: 50%; transform: translateX(-50%);
+    font-family: "JetBrains Mono", monospace; font-size: 10px; font-weight: 600;
+    color: rgba(238,242,238,0.85);
+    white-space: nowrap;
+  }
+  .pin-unclaimed { background: #6b746e; }
+  .pin-pending { background: #f0a942; }
+  .pin-claimed { background: #3ecf6e; }
+  .pin.active { box-shadow: 0 0 0 5px rgba(62,207,110,0.28); }
+
+  .map-card {
+    position: absolute;
+    width: 210px;
+    background: var(--panel);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .map-card-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .map-card-name { font-weight: 700; font-size: 13px; }
+  .map-card-sym { font-family: "JetBrains Mono", monospace; font-size: 12px; font-weight: 700; }
+  .map-card-meta { font-family: "JetBrains Mono", monospace; font-size: 10px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+  .map-card-fee { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--ink-dim); }
+  .map-card a { font-size: 11px; font-weight: 700; color: var(--accent); text-decoration: none; }
+
+  .map-shortcuts { position: absolute; top: 12px; left: 12px; display: flex; flex-direction: column; gap: 6px; z-index: 3; }
+  .map-shortcut {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(13,18,16,0.72);
+    border: 1px solid rgba(238,242,238,0.14);
+    color: #eef2ee;
+    font-family: "Manrope", sans-serif;
+    font-size: 11px; font-weight: 600;
+    padding: 6px 11px 6px 8px;
+    border-radius: 999px;
+    cursor: pointer;
+    backdrop-filter: blur(3px);
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .map-shortcut svg { width: 14px; height: 14px; flex: none; }
+  .map-shortcut:hover, .map-shortcut:focus-visible { background: rgba(62,207,110,0.24); border-color: rgba(62,207,110,0.5); outline: none; }
+
+  .map-compass { position: absolute; top: 12px; right: 12px; display: flex; flex-direction: column; align-items: center; gap: 2px; color: rgba(238,242,238,0.55); z-index: 2; }
+  .map-compass svg { width: 22px; height: 22px; }
+  .map-compass span { font-family: "JetBrains Mono", monospace; font-size: 9px; letter-spacing: 0.05em; }
+
+  .map-legend { position: absolute; bottom: 12px; left: 12px; display: flex; gap: 10px; background: rgba(13,18,16,0.72); border: 1px solid rgba(238,242,238,0.12); border-radius: 999px; padding: 6px 12px; z-index: 2; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-family: "JetBrains Mono", monospace; font-size: 9.5px; color: rgba(238,242,238,0.78); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  @media (max-width: 860px) {
+    .hero { grid-template-columns: 1fr; padding-block: 28px 18px; }
+    .map-panel { aspect-ratio: 4 / 2.6; }
+  }
+
+  @media (max-width: 480px) {
+    .map-compass, .map-legend { display: none; }
+    .map-shortcut span { display: none; }
+    .map-shortcut { padding: 7px; }
+  }
+
+  /* ---------- stats ---------- */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1px; background: var(--hairline); border: 1px solid var(--hairline); border-radius: var(--radius); overflow: hidden; }
+  .stat { background: var(--panel); padding: 12px 16px; display: flex; flex-direction: column; gap: 4px; }
+  .stat-label { font-family: "JetBrains Mono", monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-dim); }
+  .stat-value { font-family: "JetBrains Mono", monospace; font-size: 23px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat-value.warn { color: var(--pending); }
+  .stat-value.good { color: var(--accent); }
+
+  /* ---------- section head / toolbar ---------- */
+  .section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .section-title { font-size: 21px; }
+
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tab {
+    font-family: "Manrope", sans-serif;
+    font-size: 12.5px; font-weight: 700;
+    padding: 7px 14px; border-radius: 999px;
+    border: 1px solid var(--hairline);
+    background: transparent; color: var(--ink-dim);
+    cursor: pointer;
+    transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+  }
+  .tab:hover:not(.active) { border-color: var(--ink-dim); color: var(--ink); }
+  .tab.active { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+
+  .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .search-input {
+    font-family: "Manrope", sans-serif;
+    font-size: 13px;
+    border: 1px solid var(--hairline);
+    background: var(--panel);
+    color: var(--ink);
+    border-radius: 8px;
+    padding: 8px 11px;
+    min-width: 180px;
+    flex: 1 1 180px;
+  }
+
+  /* ---------- table ---------- */
+  .table-wrap { border: 1px solid var(--hairline); border-radius: var(--radius); overflow: hidden; background: var(--panel); box-shadow: var(--shadow); }
+  .t-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 13px 16px;
+    border-top: 1px solid var(--hairline);
+    font-size: 13px;
+  }
+  .t-row:first-child { border-top: none; }
+  .t-row:not(.t-head):hover { background: var(--panel-2); }
+  .t-head { background: var(--panel-2); font-family: "JetBrains Mono", monospace; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-dim); }
+  .t-biz { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+  .t-biz-avatar {
+    flex: none; width: 32px; height: 32px; border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-family: "Sora", sans-serif; font-weight: 700; font-size: 13px; color: #fff;
+  }
+  .t-biz-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .t-biz-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .t-biz-meta { font-family: "JetBrains Mono", monospace; font-size: 10.5px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.03em; }
+  .t-sym { font-family: "JetBrains Mono", monospace; font-weight: 700; }
+  .t-sym.unclaimed { color: var(--ink-dim); }
+  .t-sym.pending { color: var(--pending); }
+  .t-sym.claimed { color: var(--accent); }
+  .status-pill { font-family: "JetBrains Mono", monospace; font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; width: fit-content; }
+  .status-pill.unclaimed { color: var(--ink-dim); }
+  .status-pill.pending { color: var(--pending); }
+  .status-pill.claimed { color: var(--accent); }
+  .t-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+  .t-fee { font-family: "JetBrains Mono", monospace; font-variant-numeric: tabular-nums; }
+
+  .expand-row { grid-column: 1 / -1; padding: 0 16px 16px; border-top: 1px dashed var(--hairline); margin-top: -1px; }
+  .disclaimer-line { font-size: 11px; color: var(--ink-dim); margin-top: 2px; }
+
+  .claim-panel { background: var(--panel-2); border: 1px dashed var(--hairline); border-radius: 8px; padding: 14px; font-size: 12.5px; line-height: 1.55; display: flex; flex-direction: column; gap: 9px; margin-top: 14px; }
+  .claim-panel ol { margin: 0; padding-left: 18px; }
+  .claim-panel textarea { font-family: "Manrope", sans-serif; font-size: 12.5px; border: 1px solid var(--hairline); border-radius: 8px; padding: 9px; resize: vertical; min-height: 54px; background: var(--panel); color: var(--ink); }
+  .claim-status { font-family: "JetBrains Mono", monospace; font-size: 10.5px; color: var(--ink-dim); }
+  .tx-link { font-family: "JetBrains Mono", monospace; font-size: 10.5px; color: var(--accent); word-break: break-all; text-decoration: none; }
+
+  .empty-state { padding: 30px 16px; text-align: center; color: var(--ink-dim); font-size: 13px; }
+
+  /* ---------- business detail drawer ---------- */
+  .drawer-overlay {
+    position: fixed; inset: 0; background: rgba(4,6,5,0.5);
+    opacity: 0; pointer-events: none; transition: opacity var(--dur) var(--ease);
+    z-index: 20;
+  }
+  .drawer-overlay.open { opacity: 1; pointer-events: auto; }
+  .drawer {
+    position: fixed; top: 0; right: 0; bottom: 0;
+    width: min(420px, 92vw);
+    background: var(--panel);
+    box-shadow: var(--shadow-lg);
+    border-left: 1px solid var(--hairline);
+    transform: translateX(100%);
+    transition: transform var(--dur) var(--ease);
+    overflow-y: auto;
+    z-index: 21;
+    padding: var(--space-5);
+    padding-top: calc(var(--space-5) + env(safe-area-inset-top, 0px));
+  }
+  .drawer.open { transform: translateX(0); }
+  .drawer-head { display: flex; align-items: flex-start; gap: var(--space-3); margin-bottom: var(--space-4); }
+  .drawer-avatar {
+    flex: none; width: 44px; height: 44px; border-radius: var(--radius);
+    display: flex; align-items: center; justify-content: center;
+    font-family: "Sora", sans-serif; font-weight: 700; font-size: 18px; color: #fff;
+  }
+  .drawer-title { font-family: "Sora", sans-serif; font-weight: 700; font-size: 18px; line-height: 1.2; }
+  .drawer-meta { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 3px; }
+  .drawer-close {
+    margin-left: auto; flex: none; width: 30px; height: 30px; border-radius: 999px;
+    border: 1px solid var(--hairline); background: transparent; color: var(--ink-dim);
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .drawer-close:hover { color: var(--ink); border-color: var(--ink-dim); }
+  .drawer-section { padding-block: var(--space-4); border-top: 1px solid var(--hairline); }
+  .drawer-section:first-of-type { border-top: none; }
+  .drawer-section-title { font-family: "JetBrains Mono", monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: var(--space-2); }
+  .drawer-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 13px; padding-block: 4px; }
+  .drawer-row .v { font-family: "JetBrains Mono", monospace; font-variant-numeric: tabular-nums; text-align: right; }
+  .drawer-desc { font-size: 13px; line-height: 1.6; color: var(--ink-dim); }
+  .drawer-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: var(--space-3); }
+
+  @media (max-width: 480px) {
+    .drawer { width: 100vw; }
+  }
+
+  /* ---------- register / queue ---------- */
+  details.register { border: 1px solid var(--hairline); border-radius: var(--radius); background: var(--panel); padding: 12px 16px; box-shadow: var(--shadow); }
+  details.register summary { cursor: pointer; font-weight: 700; font-size: 13px; list-style: none; display: flex; align-items: center; gap: 7px; }
+  details.register summary::-webkit-details-marker { display: none; }
+  details.register summary::before { content: "▸"; font-size: 10px; color: var(--ink-dim); transition: transform 0.15s ease; }
+  details.register[open] summary::before { transform: rotate(90deg); }
+  details.register p { font-size: 12.5px; color: var(--ink-dim); line-height: 1.5; }
+  .register-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .view-select { font-family: "Manrope", sans-serif; font-size: 12.5px; border: 1px solid var(--hairline); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 8px; }
+
+  .launch-card { border: 1px solid var(--hairline); border-radius: var(--radius-lg); background: var(--panel); padding: var(--space-5); box-shadow: var(--shadow-md); }
+  .launch-step { display: flex; gap: var(--space-3); align-items: flex-start; margin-bottom: var(--space-3); }
+  .launch-step-num {
+    flex: none; width: 22px; height: 22px; border-radius: 999px;
+    background: var(--accent); color: var(--accent-ink);
+    font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: 11.5px;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 1px;
+  }
+  .launch-step-title { font-weight: 700; font-size: 13.5px; margin-bottom: 3px; }
+  .launch-step-2 { margin-top: var(--space-4); margin-bottom: var(--space-2); padding-top: var(--space-4); border-top: 1px dashed var(--hairline); align-items: center; }
+  .launch-step-2 .launch-step-title { margin-bottom: 0; }
+  .launch-copy { font-size: 12.5px; color: var(--ink-dim); line-height: 1.55; margin: 0 0 4px; max-width: 68ch; }
+  .launch-hint { margin-top: 10px; font-size: 12px; line-height: 1.5; padding: 10px 12px; border-radius: 8px; border: 1px dashed var(--hairline); background: var(--panel-2); color: var(--ink-dim); }
+  .launch-hint.ok { border-color: var(--accent); color: var(--ink); }
+  .launch-hint.warn { border-color: #f0a942; color: var(--ink); }
+  .launch-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+  .launch-field { display: flex; flex-direction: column; gap: 5px; font-family: "JetBrains Mono", monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-dim); }
+  .launch-field input, .launch-field textarea { font-family: "Manrope", sans-serif; font-size: 13px; text-transform: none; letter-spacing: normal; color: var(--ink); border: 1px solid var(--hairline); border-radius: 8px; padding: 9px 10px; background: var(--panel); }
+  .launch-field textarea { min-height: 64px; resize: vertical; }
+  .launch-field-wide { grid-column: 1 / -1; }
+  .launch-submit-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  @media (max-width: 560px) {
+    .launch-form { grid-template-columns: 1fr; }
+  }
+
+  .queue { border: 1px solid var(--hairline); border-radius: var(--radius); overflow: hidden; background: var(--panel); }
+  .queue-row { display: grid; grid-template-columns: 1.2fr 1fr 1.6fr auto auto; gap: 10px; align-items: center; padding: 10px 14px; font-size: 12px; border-top: 1px solid var(--hairline); }
+  .queue-row:first-child { border-top: none; background: var(--panel-2); font-family: "JetBrains Mono", monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-dim); }
+  .queue-empty { padding: 16px 14px; font-size: 12.5px; color: var(--ink-dim); }
+
+  /* ---------- portfolio ---------- */
+  .port-prompt {
+    border: 1px dashed var(--hairline); border-radius: var(--radius); background: var(--panel);
+    padding: var(--space-6); text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--space-3);
+  }
+  .port-prompt p { margin: 0; color: var(--ink-dim); font-size: 13px; max-width: 44ch; }
+  .port-group { display: flex; flex-direction: column; gap: var(--space-2); }
+  .port-group-title { font-family: "JetBrains Mono", monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-dim); }
+  .port-list { border: 1px solid var(--hairline); border-radius: var(--radius); overflow: hidden; background: var(--panel); box-shadow: var(--shadow); }
+  .port-row { display: flex; align-items: center; gap: var(--space-3); padding: 12px 14px; border-top: 1px solid var(--hairline); font-size: 13px; }
+  .port-row:first-child { border-top: none; }
+  .port-row:hover { background: var(--panel-2); }
+  .port-row .t-biz-avatar { width: 30px; height: 30px; font-size: 12px; }
+  .port-row-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+  .port-row-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .port-row-meta { font-family: "JetBrains Mono", monospace; font-size: 10.5px; color: var(--ink-dim); }
+  .port-row-action { flex: none; }
+  .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  @media (max-width: 700px) {
+    .t-row { grid-template-columns: 1fr; }
+    .t-head { display: none; }
+    .t-actions { justify-content: flex-start; }
+    .queue-row { grid-template-columns: 1fr; }
+    .queue-row:first-child { display: none; }
+    .nav-links .nav-label { display: none; }
+  }
+
+  [hidden] { display: none !important; }
+</style>
+
+<nav class="navbar">
+  <div class="brand">
+    <img class="brand-mark" src="data:image/png;base64,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" alt="Store Stocks logo">
+    <span class="brand-name">Store Stocks</span>
+  </div>
+  <div class="nav-links">
+    <a class="nav-link" href="#map"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="5" cy="5" r="1.4"/><circle cx="10" cy="5" r="1.4"/><circle cx="15" cy="5" r="1.4"/><circle cx="5" cy="10" r="1.4"/><circle cx="10" cy="10" r="1.4"/><circle cx="15" cy="10" r="1.4"/><circle cx="5" cy="15" r="1.4"/><circle cx="10" cy="15" r="1.4"/><circle cx="15" cy="15" r="1.4"/></svg><span class="nav-label">Map</span></a>
+    <a class="nav-link" href="#listings"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="14" height="12" rx="2"/><path d="M6 8h8M6 11h8M6 14h4"/></svg><span class="nav-label">Listings</span></a>
+    <a class="nav-link" href="#portfolio"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="14" height="10" rx="2"/><path d="M3 8.5h14M7 5V3.6a.8.8 0 0 1 .8-.8h4.4a.8.8 0 0 1 .8.8V5"/></svg><span class="nav-label">Portfolio</span></a>
+    <a class="nav-link" href="#queue"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 14v-2l3-3 3 4 4-6 4 3v4"/></svg><span class="nav-label">Admin</span></a>
+  </div>
+  <div style="display:flex; align-items:center; gap:8px;">
+    <span class="chip" id="netChip">chain: —</span>
+    <span class="chip" id="feeChip">fee: reading…</span>
+    <button class="btn btn-nav btn-small" id="walletBtn">Connect wallet</button>
+  </div>
+</nav>
+
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<aside class="drawer" id="businessDrawer" aria-hidden="true" aria-label="Business detail">
+  <div id="drawerBody"></div>
+</aside>
+
+<div class="wrap stack">
+
+  <section class="hero" id="map">
+    <div>
+      <div class="eyebrow"><span class="dot"></span>Unofficial community tokens · Robinhood chain</div>
+      <div class="hero-title display">Map the high street.<br>List it onchain.</div>
+      <div class="hero-sub">Store Stocks finds real businesses, stages an unofficial community token for each one on pons.family, and lets the real owner step in later — claim the listing by email, get verified, and connect a payout wallet for accrued fees.</div>
+      <div class="hero-actions">
+        <button class="btn btn-accent" onclick="document.getElementById('listings').scrollIntoView({behavior:'smooth'})">Browse listings</button>
+        <button class="btn btn-outline" id="heroWalletBtn">Connect wallet to launch</button>
+      </div>
+      <div class="hero-legal">Unofficial community tokens · no equity, revenue share, or ownership in the business</div>
+    </div>
+
+    <div class="map-panel" id="mapPanel">
+      <svg class="streets" viewBox="0 0 400 310" preserveAspectRatio="none" aria-hidden="true">
+        <rect width="400" height="310" fill="var(--nav-bg)"/>
+
+        <!-- water -->
+        <path d="M0,0 L58,0 C36,58 72,132 28,216 C8,256 18,288 0,310 Z" fill="rgba(70,150,215,0.09)"/>
+        <path d="M0,0 L58,0 C36,58 72,132 28,216 C8,256 18,288 0,310" fill="none" stroke="rgba(120,180,220,0.22)" stroke-width="1.4"/>
+        <g stroke="rgba(120,180,220,0.16)" stroke-width="1.2">
+          <line x1="8" y1="120" x2="28" y2="122"/>
+          <line x1="4" y1="196" x2="22" y2="199"/>
+        </g>
+
+        <!-- park -->
+        <path d="M214,68 C232,60 258,62 274,72 C286,80 288,98 280,112 C270,126 248,130 230,122 C214,115 206,98 208,84 C209,78 210,72 214,68 Z"
+              fill="rgba(62,207,110,0.1)" stroke="rgba(62,207,110,0.24)" stroke-width="1"/>
+        <path d="M222,108 C234,96 250,90 268,94" fill="none" stroke="rgba(62,207,110,0.2)" stroke-width="0.8" stroke-dasharray="1.5 2.4"/>
+        <g fill="rgba(62,207,110,0.42)">
+          <circle cx="230" cy="84" r="2"/>
+          <circle cx="246" cy="76" r="2"/>
+          <circle cx="264" cy="86" r="2"/>
+          <circle cx="238" cy="102" r="2"/>
+          <circle cx="260" cy="108" r="2"/>
+          <circle cx="274" cy="96" r="2"/>
+          <circle cx="222" cy="96" r="2"/>
+        </g>
+
+        <!-- city blocks, subdivided into individual building parcels -->
+        <g fill="rgba(238,242,238,0.045)" stroke="rgba(238,242,238,0.09)" stroke-width="0.6">
+          <rect x="14" y="26" width="29" height="24"/><rect x="47" y="26" width="31" height="24"/>
+          <rect x="100" y="14" width="36" height="17"/><rect x="140" y="14" width="40" height="17"/>
+          <rect x="100" y="35" width="36" height="17"/><rect x="140" y="35" width="40" height="17"/>
+          <rect x="200" y="20" width="42" height="30"/><rect x="246" y="20" width="44" height="30"/>
+          <rect x="315" y="14" width="33" height="17"/><rect x="352" y="14" width="33" height="17"/>
+          <rect x="315" y="35" width="33" height="17"/><rect x="352" y="35" width="33" height="17"/>
+          <rect x="14" y="70" width="29" height="31"/><rect x="47" y="70" width="31" height="31"/>
+          <rect x="14" y="105" width="29" height="31"/><rect x="47" y="105" width="31" height="31"/>
+          <rect x="100" y="66" width="36" height="36"/><rect x="140" y="66" width="38" height="36"/>
+          <rect x="100" y="106" width="36" height="36"/><rect x="140" y="106" width="38" height="36"/>
+          <rect x="310" y="66" width="36" height="36"/><rect x="350" y="66" width="35" height="36"/>
+          <rect x="310" y="106" width="36" height="36"/><rect x="350" y="106" width="35" height="36"/>
+          <rect x="14" y="160" width="29" height="29"/><rect x="47" y="160" width="31" height="29"/>
+          <rect x="14" y="193" width="29" height="27"/><rect x="47" y="193" width="31" height="27"/>
+          <rect x="200" y="160" width="42" height="29"/><rect x="246" y="160" width="44" height="29"/>
+          <rect x="200" y="193" width="42" height="27"/><rect x="246" y="193" width="44" height="27"/>
+          <rect x="315" y="160" width="33" height="29"/><rect x="352" y="160" width="33" height="29"/>
+          <rect x="14" y="240" width="29" height="26"/><rect x="47" y="240" width="31" height="26"/>
+          <rect x="14" y="270" width="29" height="25"/><rect x="47" y="270" width="31" height="25"/>
+          <rect x="100" y="240" width="36" height="55"/><rect x="140" y="240" width="38" height="55"/>
+          <rect x="200" y="240" width="42" height="55"/><rect x="246" y="240" width="44" height="55"/>
+          <rect x="315" y="240" width="33" height="55"/><rect x="352" y="240" width="33" height="55"/>
+        </g>
+
+        <!-- local streets -->
+        <g stroke="rgba(238,242,238,0.07)" stroke-width="1" stroke-linecap="round">
+          <line x1="0" y1="20" x2="400" y2="20"/>
+          <line x1="0" y1="105" x2="400" y2="105"/>
+          <line x1="0" y1="190" x2="400" y2="190"/>
+          <line x1="0" y1="270" x2="400" y2="270"/>
+          <line x1="40" y1="0" x2="40" y2="310"/>
+          <line x1="140" y1="0" x2="140" y2="310"/>
+          <line x1="352" y1="0" x2="352" y2="310"/>
+        </g>
+
+        <!-- arterial roads -->
+        <g stroke="rgba(238,242,238,0.18)" stroke-width="2.6" stroke-linecap="round">
+          <line x1="0" y1="60" x2="400" y2="60"/>
+          <line x1="0" y1="150" x2="400" y2="150"/>
+          <line x1="0" y1="230" x2="400" y2="230"/>
+          <line x1="90" y1="0" x2="90" y2="310"/>
+        </g>
+
+        <!-- primary road, drawn with a casing like a highway on a real map -->
+        <path d="M300,0 L300,310" fill="none" stroke="rgba(62,207,110,0.14)" stroke-width="7" stroke-linecap="round"/>
+        <path d="M300,0 L300,310" fill="none" stroke="rgba(62,207,110,0.4)" stroke-width="2.6" stroke-linecap="round"/>
+
+        <!-- curved avenue -->
+        <path d="M0,272 Q160,210 240,150 T400,42" fill="none" stroke="rgba(62,207,110,0.13)" stroke-width="6" stroke-linecap="round"/>
+        <path d="M0,272 Q160,210 240,150 T400,42" fill="none" stroke="rgba(62,207,110,0.36)" stroke-width="2.2" stroke-linecap="round"/>
+
+        <!-- intersection markers -->
+        <circle cx="300" cy="60" r="3.4" fill="var(--nav-bg)" stroke="rgba(62,207,110,0.45)" stroke-width="1.2"/>
+        <circle cx="90" cy="150" r="3.4" fill="var(--nav-bg)" stroke="rgba(238,242,238,0.22)" stroke-width="1.2"/>
+        <circle cx="300" cy="230" r="3.4" fill="var(--nav-bg)" stroke="rgba(62,207,110,0.45)" stroke-width="1.2"/>
+
+        <!-- plaza -->
+        <rect x="181" y="141" width="24" height="17" rx="2" fill="rgba(238,242,238,0.07)" stroke="rgba(238,242,238,0.15)" stroke-width="1"/>
+
+        <!-- street labels -->
+        <g font-family="Manrope, sans-serif" fill="rgba(238,242,238,0.4)" style="text-transform:uppercase;">
+          <text x="150" y="57" font-size="7" letter-spacing="0.6">Market St</text>
+          <text x="303" y="145" font-size="7" letter-spacing="0.6" transform="rotate(90 303 145)">High Street</text>
+          <text x="8" y="147" font-size="7" letter-spacing="0.6">Mill Ave</text>
+          <text x="150" y="227" font-size="7" letter-spacing="0.6">Church Ln</text>
+          <text x="208" y="66" font-size="6.5" letter-spacing="0.5" fill="rgba(62,207,110,0.5)">Riverside Park</text>
+        </g>
+      </svg>
+
+      <div class="map-shortcuts" role="group" aria-label="Map shortcuts">
+        <button type="button" class="map-shortcut" data-target="listings">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="14" height="12" rx="2"/><path d="M6 8h8M6 11h8M6 14h4"/></svg>
+          <span>Listings</span>
+        </button>
+        <button type="button" class="map-shortcut" data-target="launchNew">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 15.5V4.5M10 4.5L6.2 8.3M10 4.5l3.8 3.8"/><path d="M4.5 15.5h11"/></svg>
+          <span>Launch a token</span>
+        </button>
+        <button type="button" class="map-shortcut" data-target="queue">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 14v-2l3-3 3 4 4-6 4 3v4"/></svg>
+          <span>Admin review</span>
+        </button>
+      </div>
+
+      <div class="map-compass" aria-hidden="true">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.2">
+          <circle cx="10" cy="10" r="8"/>
+          <path d="M10 3.4v2.4M10 14.2v2.4M3.4 10h2.4M14.2 10h2.4"/>
+          <path d="M10 5.6l2.1 5.2-2.1-1.4-2.1 1.4z" fill="currentColor" stroke="none"/>
+        </svg>
+        <span>N</span>
+      </div>
+
+      <div class="map-legend" aria-hidden="true">
+        <span class="legend-item"><i class="legend-dot pin-unclaimed"></i>Unclaimed</span>
+        <span class="legend-item"><i class="legend-dot pin-pending"></i>Pending</span>
+        <span class="legend-item"><i class="legend-dot pin-claimed"></i>Claimed</span>
+      </div>
+
+      <div id="pinLayer"></div>
+      <div id="mapCard"></div>
+    </div>
+  </section>
+
+  <section class="stats" id="statsRow">
+    <div class="stat"><span class="stat-label">Listings</span><span class="stat-value" id="statTotal">0</span></div>
+    <div class="stat"><span class="stat-label">Unclaimed</span><span class="stat-value" id="statUnclaimed">0</span></div>
+    <div class="stat"><span class="stat-label">Pending review</span><span class="stat-value warn" id="statPending">0</span></div>
+    <div class="stat"><span class="stat-label">Claimed</span><span class="stat-value good" id="statClaimed">0</span></div>
+    <div class="stat"><span class="stat-label">Launched</span><span class="stat-value" id="statLaunched">0</span></div>
+  </section>
+
+  <section class="stack" id="launchNew" style="gap:12px;">
+    <div class="section-head">
+      <h2 class="display section-title">Launch a token for a business</h2>
+      <span class="eyebrow" style="color:var(--ink-dim);">paste a Google Maps link to prefill it</span>
+    </div>
+
+    <div class="launch-card">
+      <div class="launch-step">
+        <span class="launch-step-num">1</span>
+        <div>
+          <div class="launch-step-title">Paste the business's Google Maps link</div>
+          <p class="launch-copy">This fills in the name, an approximate spot on the map above, and a starter description — check everything before you launch. This page can't make outside network requests, so it only reads what's already inside the link's own text (the place name and coordinates, when they're there) — it won't pull opening hours, phone numbers, or photos from Google.</p>
+        </div>
+      </div>
+
+      <div class="register-row">
+        <input class="search-input" id="mapsUrlInput" placeholder="https://www.google.com/maps/place/…" style="flex:1; min-width:220px;">
+        <button class="btn btn-outline btn-small" id="mapsPrefillBtn" type="button">Prefill from link</button>
+      </div>
+      <div class="launch-hint" id="mapsHint" hidden></div>
+
+      <div class="launch-step launch-step-2" id="launchStep2" hidden>
+        <span class="launch-step-num">2</span>
+        <div class="launch-step-title">Review the details, then launch</div>
+      </div>
+      <div class="launch-form" id="launchForm" hidden>
+        <label class="launch-field">
+          <span>Business name</span>
+          <input class="search-input" id="newBizName" placeholder="Business name">
+        </label>
+        <label class="launch-field">
+          <span>Category</span>
+          <input class="search-input" id="newBizCategory" placeholder="e.g. Coffee shop">
+        </label>
+        <label class="launch-field">
+          <span>City / area</span>
+          <input class="search-input" id="newBizCity" placeholder="e.g. Bristol, UK">
+        </label>
+        <label class="launch-field">
+          <span>Website (optional, used only for the claim domain-match check)</span>
+          <input class="search-input" id="newBizWebsite" placeholder="business-website.com">
+        </label>
+        <label class="launch-field launch-field-wide">
+          <span>Description</span>
+          <textarea id="newBizDescription" placeholder="What this token is for"></textarea>
+        </label>
+        <div class="launch-field launch-field-wide launch-submit-row">
+          <span class="eyebrow" style="color:var(--ink-dim);">Token symbol: <span class="mono" id="newBizSymbolPreview">—</span> · launch fee: <span id="newBizFeePreview">…</span> ETH</span>
+          <button class="btn btn-accent btn-small" id="launchNewBtn" type="button">Connect wallet &amp; launch</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <details class="register" id="registerLaunch">
+    <summary>Launched elsewhere? Register it so it shows up here</summary>
+    <p>Anything launched through a "Launch" button on this page — above or in the table below — is added automatically the moment the transaction confirms. For a token launched a different way — directly on pons.family, or the CLI in the project files — paste the transaction hash here; it's checked against the real factory contract on Robinhood Chain before being added, so a listing can't be faked.</p>
+    <div class="register-row">
+      <input class="search-input mono" id="registerTxHash" placeholder="0x… transaction hash" style="max-width: 340px;">
+      <select class="view-select" id="registerBusiness">
+        <option value="">Which listing?</option>
+      </select>
+      <button class="btn btn-outline btn-small" data-action="register-launch">Register launch</button>
+    </div>
+  </details>
+
+  <section class="stack" id="listings" style="gap:12px;">
+    <div class="section-head">
+      <h2 class="display section-title">Listings</h2>
+      <span class="eyebrow" id="listingCount" style="color:var(--ink-dim);">4 of 4 shown</span>
+    </div>
+
+    <div class="toolbar">
+      <div class="tabs" id="viewTabs">
+        <button class="tab active" data-view="all">All</button>
+        <button class="tab" data-view="recent">Recently launched</button>
+        <button class="tab" data-view="unclaimed">Unclaimed</button>
+      </div>
+      <input class="search-input" id="searchInput" type="search" placeholder="Search name, category, city…" aria-label="Search listings" style="max-width:220px;">
+      <div class="tabs" id="categoryChips"></div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="t-row t-head">
+        <span>Business</span><span>Token</span><span>Status</span><span>Category</span><span>Launch fee</span><span></span>
+      </div>
+      <div id="tableBody"></div>
+    </div>
+    <div class="empty-state" id="emptyState" hidden>No listings match that search/filter.</div>
+  </section>
+
+  <section class="stack" id="portfolio" style="gap:12px;">
+    <div class="section-head">
+      <h2 class="display section-title">Portfolio</h2>
+      <span class="eyebrow" style="color:var(--ink-dim);">tokens and payout wallets tied to your connected wallet</span>
+    </div>
+    <div id="portfolioBody"></div>
+  </section>
+
+  <section class="stack" id="queue" style="gap:12px;">
+    <div class="section-head">
+      <h2 class="display section-title">Admin review</h2>
+      <span class="eyebrow" style="color:var(--ink-dim);">claims are reviewed manually, then filed as a pons.family Community Takeover</span>
+    </div>
+
+    <div class="tabs" id="adminTabs">
+      <button class="tab active" type="button" data-admin-view="claims">Pending claims</button>
+      <button class="tab" type="button" data-admin-view="launches">Launch log</button>
+    </div>
+
+    <div id="adminClaimsView">
+      <div class="queue" id="queueBox">
+        <div class="queue-row">
+          <span>Business</span><span>Email</span><span>Note</span><span>Requested</span><span></span>
+        </div>
+        <div class="queue-empty" id="queueEmpty">No claims submitted yet.</div>
+      </div>
+    </div>
+
+    <div id="adminLaunchesView" hidden>
+      <div class="port-list" id="launchLogList"></div>
+      <div class="empty-state" id="launchLogEmpty" hidden>No tokens launched yet.</div>
+    </div>
+  </section>
+
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- verified constants (see lib/ponsFactory.js for provenance) ----------
+  var RPC_URL = "https://rpc.mainnet.chain.robinhood.com";
+  var CHAIN_ID = 4663;
+  var CHAIN_ID_HEX = "0x1237";
+  var EXPLORER = "https://robinhoodchain.blockscout.com";
+  var FACTORY_ADDRESS = "0xA5aAb3F0c6EeadF30Ef1D3Eb997108E976351feB";
+  // Embedded in every token's on-chain description so anyone viewing it
+  // directly on pons.family (not just visitors to this site) can tell it's
+  // part of this project, even if this page's own URL isn't public.
+  var PROJECT_NAME = "Store Stocks";
+
+  // ---------- shared backend (Firebase Firestore, backend/firestore.rules) ----------
+  // Public web config — safe to commit; Firestore access is controlled by
+  // backend/firestore.rules, not by keeping this secret. Fill this in with
+  // the values from your Firebase project (Project settings > General >
+  // Your apps > SDK setup and configuration) after running:
+  //   firebase deploy --only firestore:rules,firestore:indexes
+  // Until it's filled in, the site still works fully — it just falls back
+  // to local, per-visitor state instead of shared/persisted data.
+  var firebaseConfig = {
+    apiKey: "REPLACE_WITH_YOUR_FIREBASE_API_KEY",
+    authDomain: "REPLACE_WITH_YOUR_PROJECT.firebaseapp.com",
+    projectId: "REPLACE_WITH_YOUR_PROJECT_ID",
+    storageBucket: "REPLACE_WITH_YOUR_PROJECT.appspot.com",
+    messagingSenderId: "REPLACE_WITH_YOUR_SENDER_ID",
+    appId: "REPLACE_WITH_YOUR_APP_ID"
+  };
+
+  var BLOCKED_ADDRESSES = [
+    "0xa582df4a063c69a05a4356e0f1419cad92212f82",
+    "0x00000905c0053d943c89420b4c2561514dcb60fc",
+    "0x97f6ea36d41a595256eb2fddb75ff139adb8789f",
+    "0x6c304c85f8244b8f256981447c33154406559d15",
+    "0x5c2a1e7866c6cd56b388ebbaee019ae0793b8e0c"
+  ];
+  var FACTORY_ABI = [{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"deployer","type":"address"},{"indexed":true,"internalType":"address","name":"dexFactory","type":"address"},{"indexed":false,"internalType":"address","name":"pairToken","type":"address"},{"indexed":false,"internalType":"uint256","name":"dexId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"launchConfigId","type":"uint256"}],"name":"TokenDeployed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"deployer","type":"address"},{"indexed":true,"internalType":"address","name":"dexFactory","type":"address"},{"indexed":false,"internalType":"address","name":"pairToken","type":"address"},{"indexed":false,"internalType":"address","name":"pool","type":"address"},{"indexed":false,"internalType":"uint256","name":"dexId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"launchConfigId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"positionId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"restrictionsEndBlock","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"initialBuyAmount","type":"uint256"}],"name":"TokenLaunched","type":"event"},{"inputs":[],"name":"dexConfigCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"id","type":"uint256"}],"name":"getDexConfig","outputs":[{"components":[{"internalType":"string","name":"name","type":"string"},{"internalType":"address","name":"factory","type":"address"},{"internalType":"address","name":"positionManager","type":"address"},{"internalType":"address","name":"swapRouter","type":"address"},{"internalType":"uint24","name":"poolFee","type":"uint24"},{"internalType":"int24","name":"tickSpacing","type":"int24"},{"internalType":"bool","name":"enabled","type":"bool"}],"internalType":"struct PonsLaunchFactory.DexConfig","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"id","type":"uint256"}],"name":"getLaunchConfig","outputs":[{"components":[{"internalType":"address","name":"pairToken","type":"address"},{"internalType":"uint256","name":"graduationThreshold","type":"uint256"},{"internalType":"int24","name":"initialTick","type":"int24"},{"internalType":"uint256","name":"supply","type":"uint256"},{"internalType":"uint16","name":"maxWalletBps","type":"uint16"},{"internalType":"uint16","name":"maxTxBps","type":"uint16"},{"internalType":"uint32","name":"restrictionBlocks","type":"uint32"},{"internalType":"uint24","name":"reservedFee","type":"uint24"},{"internalType":"bool","name":"enabled","type":"bool"},{"internalType":"bool","name":"routerRequiresDeadline","type":"bool"}],"internalType":"struct PonsLaunchFactory.LaunchConfig","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"getLaunchedToken","outputs":[{"components":[{"internalType":"address","name":"token","type":"address"},{"internalType":"address","name":"deployer","type":"address"},{"internalType":"address","name":"pairedToken","type":"address"},{"internalType":"address","name":"positionManager","type":"address"},{"internalType":"uint256","name":"positionId","type":"uint256"},{"internalType":"uint256","name":"dexId","type":"uint256"},{"internalType":"uint256","name":"launchConfigId","type":"uint256"},{"internalType":"uint256","name":"restrictionsEndBlock","type":"uint256"},{"internalType":"uint256","name":"supply","type":"uint256"},{"internalType":"bool","name":"isToken0","type":"bool"},{"internalType":"uint24","name":"poolFee","type":"uint24"},{"internalType":"bool","name":"exists","type":"bool"},{"internalType":"uint256","name":"initialBuyAmount","type":"uint256"}],"internalType":"struct IPonsLaunchFactory.LaunchedToken","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"launchConfigCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"launchEnabled","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"launchFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"components":[{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"symbol","type":"string"},{"internalType":"string","name":"logo","type":"string"},{"internalType":"string","name":"description","type":"string"},{"components":[{"internalType":"string","name":"twitter","type":"string"},{"internalType":"string","name":"telegram","type":"string"},{"internalType":"string","name":"discord","type":"string"},{"internalType":"string","name":"website","type":"string"},{"internalType":"string","name":"farcaster","type":"string"}],"internalType":"struct PonsLaunchFactory.Socials","name":"socials","type":"tuple"},{"internalType":"address","name":"feeWallet","type":"address"}],"internalType":"struct PonsLaunchFactory.TokenParams","name":"params","type":"tuple"},{"internalType":"uint256","name":"launchConfigId","type":"uint256"},{"internalType":"uint256","name":"dexId","type":"uint256"},{"internalType":"bytes32","name":"salt","type":"bytes32"}],"name":"launchToken","outputs":[{"internalType":"address","name":"token","type":"address"}],"stateMutability":"payable","type":"function"},{"inputs":[],"name":"locker","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"components":[{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"symbol","type":"string"},{"internalType":"string","name":"logo","type":"string"},{"internalType":"string","name":"description","type":"string"},{"components":[{"internalType":"string","name":"twitter","type":"string"},{"internalType":"string","name":"telegram","type":"string"},{"internalType":"string","name":"discord","type":"string"},{"internalType":"string","name":"website","type":"string"},{"internalType":"string","name":"farcaster","type":"string"}],"internalType":"struct PonsLaunchFactory.Socials","name":"socials","type":"tuple"},{"internalType":"address","name":"feeWallet","type":"address"}],"internalType":"struct PonsLaunchFactory.TokenParams","name":"params","type":"tuple"},{"internalType":"uint256","name":"launchConfigId","type":"uint256"},{"internalType":"uint256","name":"dexId","type":"uint256"},{"internalType":"bytes32","name":"salt","type":"bytes32"},{"internalType":"address","name":"tokenDeployer","type":"address"}],"name":"predictTokenAddress","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"}];
+
+  // Starts empty on purpose — real listings come from the "Launch a token"
+  // panel (Google Maps link) or from registering a transaction launched
+  // elsewhere, and are stored in `state.customBusinesses` (synced via the
+  // shared "businesses" db collection so every viewer sees the same set).
+  var DEMO_BUSINESSES = [];
+
+  function deriveSymbol(name) {
+    var words = name.replace(/[^a-zA-Z ]/g, "").split(/\s+/).filter(Boolean);
+    var sym = words.map(function (w) { return w[0]; }).join("").toUpperCase();
+    if (sym.length < 3) sym = (name.replace(/[^a-zA-Z]/g, "").toUpperCase() + "TOKEN").slice(0, 5);
+    return sym.slice(0, 5);
+  }
+  // ---------- Google Maps link prefill ----------
+  // Reads only the text already inside the pasted URL — this page can't make
+  // outside network requests (the artifact sandbox blocks fetches to
+  // arbitrary hosts), so nothing is fetched from Google. That means short
+  // links (maps.app.goo.gl, goo.gl/maps) can't be expanded here.
+  function parseGoogleMapsUrl(raw) {
+    var url = (raw || "").trim();
+    if (!url) return { ok: false, reason: "Paste a Google Maps link first." };
+    if (/^https?:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps)\//i.test(url)) {
+      return { ok: false, reason: "That's a shortened Google Maps link — this page can't expand it without making an outside network request, which it doesn't do. Open the link in a browser tab, then copy the full address-bar URL (it should contain \"/maps/place/\") and paste that instead." };
+    }
+    if (!/google\.[a-z.]+\/maps/i.test(url) && !/^https?:\/\/maps\.google\./i.test(url)) {
+      return { ok: false, reason: "That doesn't look like a Google Maps link." };
+    }
+
+    var result = { ok: true, name: "", city: "", lat: null, lng: null, placeRef: null, sourceUrl: url };
+
+    var placeMatch = /\/place\/([^/@]+)/.exec(url);
+    if (placeMatch) {
+      var rawName = decodeURIComponent(placeMatch[1].replace(/\+/g, " "));
+      var parts = rawName.split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+      if (parts.length > 1) {
+        result.name = parts[0];
+        result.city = parts.slice(1).join(", ");
+      } else {
+        result.name = rawName;
+      }
+    }
+
+    var coordMatch = /@(-?\d+\.\d+),(-?\d+\.\d+)/.exec(url);
+    if (coordMatch) {
+      result.lat = parseFloat(coordMatch[1]);
+      result.lng = parseFloat(coordMatch[2]);
+    }
+
+    var placeIdMatch = /!1s(0x[0-9a-fA-F]+:0x[0-9a-fA-F]+)/.exec(url);
+    if (placeIdMatch) result.placeRef = placeIdMatch[1];
+
+    if (!result.name && !coordMatch) {
+      return { ok: false, reason: "Couldn't find a business name or coordinates in that link. Make sure it's a full \"…/maps/place/…\" URL, not a search or directions link." };
+    }
+    return result;
+  }
+  function hashToRange(str, min, max) {
+    var h = 0;
+    for (var i = 0; i < str.length; i++) { h = (h * 31 + str.charCodeAt(i)) >>> 0; }
+    return min + (h % (max - min + 1));
+  }
+  function mapPositionFor(parsed) {
+    var key = (parsed.lat != null && parsed.lng != null) ? (parsed.lat.toFixed(4) + "," + parsed.lng.toFixed(4)) : (parsed.name || "business");
+    return { mapX: hashToRange(key + ":x", 10, 90), mapY: hashToRange(key + ":y", 12, 88) };
+  }
+  // Deterministic per-business color, used for the listings/detail avatar
+  // chip — same business always gets the same color, no real logo required.
+  function avatarColor(name) {
+    var hue = hashToRange(name || "business", 0, 359);
+    return "hsl(" + hue + ", 52%, 40%)";
+  }
+  function initialFor(name) {
+    var trimmed = (name || "").trim();
+    return trimmed ? trimmed.charAt(0).toUpperCase() : "?";
+  }
+  function emailDomain(email) {
+    var m = /@([^@\s]+)$/.exec((email || "").trim().toLowerCase());
+    return m ? m[1] : null;
+  }
+  function isPlausibleEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((email || "").trim());
+  }
+  function short(addr) { return addr ? addr.slice(0, 6) + "…" + addr.slice(-4) : ""; }
+  function timeAgo(iso) {
+    if (!iso) return "—";
+    var diff = Date.now() - new Date(iso).getTime();
+    var mins = Math.round(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return mins + "m ago";
+    var hrs = Math.round(mins / 60);
+    if (hrs < 24) return hrs + "h ago";
+    return Math.round(hrs / 24) + "d ago";
+  }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  // ---------- state ----------
+  var state = { wallet: null, signer: null, chainOk: false, claims: {}, launches: {}, customBusinesses: [] };
+  var filters = { search: "", category: "All", view: "all" };
+  var activePin = null;
+  var db = null;
+  var pendingLaunch = null;
+  var activeDrawerId = null;
+
+  function allBusinesses() { return DEMO_BUSINESSES.concat(state.customBusinesses); }
+
+  var readProvider = new ethers.JsonRpcProvider(RPC_URL, CHAIN_ID);
+  var readFactory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, readProvider);
+
+  var liveLaunchFee = null;
+  readFactory.launchFee().then(function (fee) {
+    liveLaunchFee = fee;
+    document.getElementById("feeChip").textContent = "fee: " + ethers.formatEther(fee) + " ETH";
+    document.getElementById("feeChip").classList.add("chip-live");
+    document.getElementById("newBizFeePreview").textContent = ethers.formatEther(fee);
+    renderTable();
+    renderMapCard();
+  }).catch(function () {
+    document.getElementById("feeChip").textContent = "fee: unavailable";
+    document.getElementById("newBizFeePreview").textContent = "unavailable";
+  });
+
+  async function resolveDefaultConfig() {
+    var dexCount = Number(await readFactory.dexConfigCount());
+    var launchCount = Number(await readFactory.launchConfigCount());
+    var dexId = null, launchConfigId = null;
+    for (var i = 0; i < dexCount; i++) {
+      var d = await readFactory.getDexConfig(i);
+      if (d.enabled) { dexId = i; break; }
+    }
+    for (var j = 0; j < launchCount; j++) {
+      var l = await readFactory.getLaunchConfig(j);
+      if (l.enabled) { launchConfigId = j; break; }
+    }
+    if (dexId === null || launchConfigId === null) {
+      throw new Error("No enabled DEX/launch configuration found on-chain right now.");
+    }
+    return { dexId: dexId, launchConfigId: launchConfigId };
+  }
+
+  // ---------- wallet ----------
+  async function connectWallet() {
+    if (!window.ethereum) {
+      alert("No injected wallet found (e.g. MetaMask). Install one to launch real tokens; you can still browse and submit claim requests without it.");
+      return;
+    }
+    var browserProvider = new ethers.BrowserProvider(window.ethereum);
+    await browserProvider.send("eth_requestAccounts", []);
+    var signer = await browserProvider.getSigner();
+    var network = await browserProvider.getNetwork();
+    state.signer = signer;
+    state.wallet = await signer.getAddress();
+    state.chainOk = Number(network.chainId) === CHAIN_ID;
+    renderWalletBox();
+    if (!state.chainOk) {
+      try {
+        await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: CHAIN_ID_HEX }] });
+      } catch (switchErr) {
+        if (switchErr.code === 4902) {
+          try {
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [{
+                chainId: CHAIN_ID_HEX,
+                chainName: "Robinhood Chain",
+                nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+                rpcUrls: [RPC_URL],
+                blockExplorerUrls: [EXPLORER]
+              }]
+            });
+          } catch (addErr) { /* user declined; leave chainOk false */ }
+        }
+      }
+      var net2 = await browserProvider.getNetwork();
+      state.chainOk = Number(net2.chainId) === CHAIN_ID;
+    }
+    renderWalletBox();
+    renderTable();
+    renderPortfolio();
+  }
+
+  function renderWalletBox() {
+    var btn = document.getElementById("walletBtn");
+    var heroBtn = document.getElementById("heroWalletBtn");
+    var netChip = document.getElementById("netChip");
+    if (state.wallet) {
+      btn.textContent = short(state.wallet);
+      heroBtn.textContent = "Connected: " + short(state.wallet);
+    }
+    netChip.textContent = state.wallet ? (state.chainOk ? "chain: Robinhood ✓" : "chain: wrong network") : "chain: —";
+    netChip.className = "chip" + (state.wallet ? (state.chainOk ? " chip-live" : " chip-warn") : "");
+  }
+
+  function walletButtonClick() {
+    if (state.wallet) {
+      document.getElementById("portfolio").scrollIntoView({ behavior: "smooth" });
+    } else {
+      connectWallet();
+    }
+  }
+  document.getElementById("walletBtn").addEventListener("click", walletButtonClick);
+  document.getElementById("heroWalletBtn").addEventListener("click", walletButtonClick);
+
+  // ---------- db (claims + launches + businesses), shared across viewers ----------
+  // Two possible backends, tried in order, both exposing the same
+  // doc()/set()/update()/collection().onSnapshot() shape so nothing below
+  // this function needs to know which one is active:
+  //   1. window.claude.use("db") — when this page is viewed inside a Cowork
+  //      Artifact preview.
+  //   2. Real Firebase Firestore (firebaseConfig above) — when deployed
+  //      standalone, e.g. at storestocks.xyz.
+  // If neither is available, db stays null and every write site below
+  // already falls back to local, per-visitor state.
+  async function initDb() {
+    try {
+      if (window.claude && window.claude.use) {
+        db = await window.claude.use("db");
+      } else if (window.firebase && firebaseConfig.apiKey.indexOf("REPLACE_WITH") !== 0) {
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+      }
+    } catch (err) {
+      console.warn("Shared storage failed to initialize — falling back to local, per-visitor state.", err);
+      db = null;
+    }
+    if (!db) return;
+    db.collection("claims").onSnapshot(function (snap) {
+      var next = {};
+      snap.docs.forEach(function (d) { next[d.id] = d.data(); });
+      state.claims = next;
+      renderTable();
+      renderQueue();
+      renderStats();
+      renderMap();
+      renderPortfolio();
+    }, function () {});
+    db.collection("launches").onSnapshot(function (snap) {
+      var next = {};
+      snap.docs.forEach(function (d) { next[d.id] = d.data(); });
+      state.launches = next;
+      renderTable();
+      renderStats();
+      renderPortfolio();
+      renderLaunchLog();
+    }, function () {});
+    db.collection("businesses").onSnapshot(function (snap) {
+      var next = [];
+      snap.docs.forEach(function (d) { next.push(d.data()); });
+      next.sort(function (a, b) { return (a.createdAt || "").localeCompare(b.createdAt || ""); });
+      state.customBusinesses = next;
+      renderChips();
+      renderTable();
+      renderStats();
+      renderQueue();
+      renderMap();
+      renderPortfolio();
+      renderLaunchLog();
+      populateRegisterSelect();
+    }, function () {});
+  }
+
+  // ---------- filtering ----------
+  function claimStatus(id) {
+    var c = state.claims[id];
+    // a dismissed claim behaves like no claim at all — the listing goes
+    // back to claimable, the "dismissed" outcome is kept only in the doc
+    // itself for the admin's own record.
+    if (!c || c.status === "dismissed") return "unclaimed";
+    return c.status;
+  }
+  function categories() {
+    var set = {};
+    allBusinesses().forEach(function (b) { set[b.category] = true; });
+    return Object.keys(set).sort();
+  }
+  function filteredList() {
+    var q = filters.search.trim().toLowerCase();
+    var list = allBusinesses().filter(function (b) {
+      if (filters.category !== "All" && b.category !== filters.category) return false;
+      if (filters.view === "unclaimed" && claimStatus(b.id) !== "unclaimed") return false;
+      if (filters.view === "recent" && !state.launches[b.id]) return false;
+      if (q && (b.name + " " + b.category + " " + b.city).toLowerCase().indexOf(q) === -1) return false;
+      return true;
+    });
+    if (filters.view === "recent") {
+      list.sort(function (a, b) {
+        return new Date(state.launches[b.id].launchedAt) - new Date(state.launches[a.id].launchedAt);
+      });
+    }
+    return list;
+  }
+
+  function renderChips() {
+    var box = document.getElementById("categoryChips");
+    var cats = categories();
+    box.innerHTML = cats.map(function (c) {
+      return '<button type="button" class="tab' + (filters.category === c ? " active" : "") + '" data-cat="' + esc(c) + '">' + esc(c) + '</button>';
+    }).join("");
+  }
+
+  // ---------- map ----------
+  function renderMap() {
+    var layer = document.getElementById("pinLayer");
+    layer.innerHTML = allBusinesses().map(function (b) {
+      var status = claimStatus(b.id);
+      return '<div class="pin pin-' + status + (activePin === b.id ? " active" : "") + '" style="left:' + b.mapX + '%; top:' + b.mapY + '%;" data-sym="$' + deriveSymbol(b.name) + '" data-id="' + b.id + '" role="button" tabindex="0" aria-label="' + esc(b.name) + '"></div>';
+    }).join("");
+    renderMapCard();
+  }
+
+  function renderMapCard() {
+    var cardBox = document.getElementById("mapCard");
+    var b = allBusinesses().find(function (x) { return x.id === activePin; });
+    if (!b) { cardBox.innerHTML = ""; return; }
+    var status = claimStatus(b.id);
+    var statusLabel = status === "claimed" ? "Claimed" : status === "pending" ? "Pending" : "Unclaimed";
+    var launch = state.launches[b.id];
+    var left = b.mapX > 55 ? (b.mapX - 24) + "%" : (b.mapX + 5) + "%";
+    var top = b.mapY > 55 ? (b.mapY - 34) + "%" : (b.mapY + 6) + "%";
+    cardBox.innerHTML =
+      '<div class="map-card" style="left:' + left + '; top:' + top + ';">' +
+        '<div class="map-card-top"><span class="map-card-name">' + esc(b.name) + '</span><span class="map-card-sym t-sym ' + status + '">$' + deriveSymbol(b.name) + '</span></div>' +
+        '<span class="status-pill ' + status + '">' + statusLabel + '</span>' +
+        '<span class="map-card-meta">' + esc(b.category) + ' · ' + esc(b.city) + '</span>' +
+        '<span class="map-card-fee">' + (launch ? "launched · " + short(launch.txHash) : (liveLaunchFee ? "launch fee " + ethers.formatEther(liveLaunchFee) + " ETH" : "not yet launched")) + '</span>' +
+        (b.mapsUrl ? '<a href="' + esc(b.mapsUrl) + '" target="_blank" rel="noopener">Open in Google Maps ↗</a>' : '') +
+        '<a href="#listings" data-scroll-to="' + b.id + '">View in listings ↓</a>' +
+      '</div>';
+  }
+
+  document.getElementById("pinLayer").addEventListener("click", function (e) {
+    var pin = e.target.closest(".pin");
+    if (!pin) return;
+    activePin = pin.getAttribute("data-id");
+    renderMap();
+  });
+  document.getElementById("mapCard").addEventListener("click", function (e) {
+    var link = e.target.closest("[data-scroll-to]");
+    if (!link) return;
+    e.preventDefault();
+    filters.search = "";
+    document.getElementById("searchInput").value = "";
+    renderTable();
+    document.getElementById("listings").scrollIntoView({ behavior: "smooth" });
+  });
+
+  document.querySelectorAll(".map-shortcut").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var targetId = btn.getAttribute("data-target");
+      var target = document.getElementById(targetId);
+      if (!target) return;
+      if (btn.getAttribute("data-open") === "true" && "open" in target) target.open = true;
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+
+  // ---------- launch a token from a Google Maps link ----------
+  function updateNewBizSymbolPreview() {
+    var name = document.getElementById("newBizName").value.trim();
+    document.getElementById("newBizSymbolPreview").textContent = name ? "$" + deriveSymbol(name) : "—";
+  }
+  document.getElementById("newBizName").addEventListener("input", updateNewBizSymbolPreview);
+
+  document.getElementById("mapsPrefillBtn").addEventListener("click", function () {
+    var input = document.getElementById("mapsUrlInput");
+    var hint = document.getElementById("mapsHint");
+    var form = document.getElementById("launchForm");
+    var parsed = parseGoogleMapsUrl(input.value);
+
+    hint.hidden = false;
+    if (!parsed.ok) {
+      hint.className = "launch-hint warn";
+      hint.textContent = parsed.reason;
+      return;
+    }
+
+    pendingLaunch = parsed;
+    document.getElementById("newBizName").value = parsed.name || "";
+    document.getElementById("newBizCategory").value = "";
+    document.getElementById("newBizCity").value = parsed.city || "";
+    document.getElementById("newBizWebsite").value = "";
+    document.getElementById("newBizDescription").value = parsed.name
+      ? ("Local business" + (parsed.city ? " in " + parsed.city : "") + ". Unofficial community token — add more detail here if you'd like.")
+      : "";
+    updateNewBizSymbolPreview();
+
+    var found = [];
+    if (parsed.name) found.push("the name");
+    if (parsed.lat != null) found.push("a rough location");
+    hint.className = "launch-hint ok";
+    hint.textContent = (found.length ? "Pulled " + found.join(" and ") + " straight from the link text — no outside request was made." : "Link parsed, but it didn't contain a name or coordinates — fill the fields in by hand.") +
+      " Its spot on the map above is a stylized placeholder, not GPS-accurate. Check the fields below, then launch.";
+    form.hidden = false;
+    document.getElementById("launchStep2").hidden = false;
+  });
+
+  document.getElementById("launchNewBtn").addEventListener("click", async function () {
+    var btn = this;
+    if (!pendingLaunch) { alert('Paste a Google Maps link and click "Prefill from link" first.'); return; }
+
+    var name = document.getElementById("newBizName").value.trim();
+    if (!name) { alert("Business name can't be empty."); return; }
+    var category = document.getElementById("newBizCategory").value.trim() || "Local business";
+    var city = document.getElementById("newBizCity").value.trim();
+    var website = document.getElementById("newBizWebsite").value.trim();
+    var description = document.getElementById("newBizDescription").value.trim() || ("Local business" + (city ? " in " + city : "") + ".");
+
+    var dupe = allBusinesses().find(function (b) {
+      return (pendingLaunch.placeRef && b.placeRef === pendingLaunch.placeRef) ||
+             (pendingLaunch.sourceUrl && b.mapsUrl === pendingLaunch.sourceUrl);
+    });
+    if (dupe) {
+      alert('This business already looks listed as "' + dupe.name + '" — find it in Listings below instead of launching a duplicate.');
+      return;
+    }
+
+    if (!state.wallet) { await connectWallet(); if (!state.wallet) return; }
+    if (!state.chainOk) { alert("Switch your wallet to Robinhood Chain first (the connect button attempts this automatically)."); return; }
+    var feeWallet = state.wallet;
+    if (BLOCKED_ADDRESSES.indexOf(feeWallet.toLowerCase()) !== -1) {
+      alert("Refusing to use this address — it matches a known bait address, not your real wallet.");
+      return;
+    }
+
+    var pos = mapPositionFor(pendingLaunch);
+    var newId = "biz-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var newBiz = {
+      id: newId, name: name, category: category, city: city, website: website,
+      mapX: pos.mapX, mapY: pos.mapY, description: description,
+      mapsUrl: pendingLaunch.sourceUrl || "", placeRef: pendingLaunch.placeRef || null,
+      createdAt: new Date().toISOString()
+    };
+
+    btn.disabled = true;
+    btn.textContent = "Reading config…";
+    try {
+      var cfg = await resolveDefaultConfig();
+      var factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, state.signer);
+      var fee = liveLaunchFee || await factory.launchFee();
+
+      var params = {
+        name: newBiz.name,
+        symbol: deriveSymbol(newBiz.name),
+        logo: "",
+        description: newBiz.description + " Unofficial community token launched via " + PROJECT_NAME + " — not created by or affiliated with the business.",
+        socials: { twitter: "", telegram: "", discord: "", website: newBiz.website || "", farcaster: "" },
+        feeWallet: feeWallet
+      };
+
+      btn.textContent = "Confirm in wallet…";
+      var tx = await factory.launchToken(params, cfg.launchConfigId, cfg.dexId, ethers.ZeroHash, { value: fee });
+      btn.textContent = "Confirming…";
+      var receipt = await tx.wait();
+
+      var tokenAddress = null;
+      var iface = new ethers.Interface(FACTORY_ABI);
+      for (var i = 0; i < receipt.logs.length; i++) {
+        try {
+          var parsedLog = iface.parseLog(receipt.logs[i]);
+          if (parsedLog && parsedLog.name === "TokenLaunched") { tokenAddress = parsedLog.args.token; break; }
+        } catch (e) {}
+      }
+
+      var launchRecord = { txHash: tx.hash, tokenAddress: tokenAddress, launchedBy: state.wallet, launchedAt: new Date().toISOString() };
+      if (db) {
+        await db.doc("businesses/" + newId).set(newBiz);
+        await db.doc("launches/" + newId).set(launchRecord);
+      } else {
+        state.customBusinesses.push(newBiz);
+        state.launches[newId] = launchRecord;
+      }
+
+      pendingLaunch = null;
+      document.getElementById("mapsUrlInput").value = "";
+      document.getElementById("launchForm").hidden = true;
+      document.getElementById("launchStep2").hidden = true;
+      var hint = document.getElementById("mapsHint");
+      hint.hidden = false;
+      hint.className = "launch-hint ok";
+      hint.textContent = 'Launched — "' + newBiz.name + '" now has a token and is live in Listings and on the map above.';
+
+      renderChips();
+      renderTable();
+      renderStats();
+      renderQueue();
+      renderMap();
+      renderPortfolio();
+      renderLaunchLog();
+      populateRegisterSelect();
+      document.getElementById("listings").scrollIntoView({ behavior: "smooth" });
+    } catch (err) {
+      alert("Launch failed or was rejected: " + (err && err.message ? err.message : err));
+    }
+    btn.disabled = false;
+    btn.textContent = "Connect wallet & launch";
+  });
+
+  // ---------- rendering ----------
+  var expandedClaim = null;
+
+  function renderStats() {
+    var total = allBusinesses().length;
+    var pending = 0, claimed = 0, launched = 0;
+    allBusinesses().forEach(function (b) {
+      var c = state.claims[b.id];
+      if (c && c.status === "pending") pending++;
+      if (c && c.status === "claimed") claimed++;
+      if (state.launches[b.id]) launched++;
+    });
+    document.getElementById("statTotal").textContent = total;
+    document.getElementById("statUnclaimed").textContent = total - pending - claimed;
+    document.getElementById("statPending").textContent = pending;
+    document.getElementById("statClaimed").textContent = claimed;
+    document.getElementById("statLaunched").textContent = launched;
+  }
+
+  function claimPanelHtml(b, claim) {
+    var status = claim ? claim.status : "unclaimed";
+
+    if (status === "claimed") {
+      if (claim.payoutWallet) {
+        return (
+          '<div class="claim-panel">' +
+            '<div><b>Verified ✓</b> — claimed by ' + esc(claim.email) + '</div>' +
+            '<div class="claim-status">Payout wallet on file: <span class="mono">' + short(claim.payoutWallet) + '</span></div>' +
+            '<div class="claim-status">Accrued fees are reassigned to this wallet via pons.family’s <a href="https://docs.ponsfamily.com" target="_blank" rel="noopener">Community Takeover</a> process — that step happens on pons.family, not on this page.</div>' +
+          '</div>'
+        );
+      }
+      return (
+        '<div class="claim-panel">' +
+          '<div><b>Verified ✓</b> — ' + esc(claim.email) + ' has been confirmed as this business.</div>' +
+          '<div>Add a wallet address to receive accrued fees. This is a normal crypto wallet (e.g. MetaMask) — this site never holds your funds; fees move directly to whatever wallet you give us, via pons.family’s own claim/Community Takeover process.</div>' +
+          '<input class="search-input" id="payout-' + b.id + '" placeholder="0x… payout wallet address">' +
+          '<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">' +
+            '<button class="btn btn-accent btn-small" data-action="set-payout-wallet" data-id="' + b.id + '">Save payout wallet</button>' +
+          '</div>' +
+        '</div>'
+      );
+    }
+
+    var emailVal = claim && claim.email ? esc(claim.email) : "";
+    var noteVal = claim && claim.note ? esc(claim.note) : "";
+    var domainNote = "";
+    if (claim && claim.email && b.website) {
+      var matches = emailDomain(claim.email) === b.website.toLowerCase();
+      domainNote = '<div class="claim-status">' + (matches ? "✓ email domain matches the business’s listed website (weak signal — still reviewed by a person)" : "⚠ email domain doesn’t match the business’s listed website — you may be asked for another way to verify") + '</div>';
+    }
+
+    return (
+      '<div class="claim-panel">' +
+        '<div><b>Claim "' + esc(b.name) + '" — no wallet needed yet</b></div>' +
+        '<ol>' +
+          '<li>Leave the email you use for this business below (ideally one on the business’s own domain).</li>' +
+          '<li>A person reviews it — this page does not auto-verify anything from an email alone.</li>' +
+          '<li>Once confirmed, come back here to add a payout wallet; fees are then reassigned via pons.family’s <a href="https://docs.ponsfamily.com" target="_blank" rel="noopener">Community Takeover</a> process.</li>' +
+        '</ol>' +
+        '<input class="search-input" id="email-' + b.id + '" type="email" placeholder="you@your-business.com" value="' + emailVal + '">' +
+        '<textarea id="note-' + b.id + '" placeholder="Anything that helps us verify you run this business (phone, other contact, etc.)">' + noteVal + '</textarea>' +
+        domainNote +
+        '<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">' +
+          '<button class="btn btn-accent btn-small" data-action="submit-claim" data-id="' + b.id + '">Submit claim request</button>' +
+        '</div>' +
+        (claim ? '<div class="claim-status">status: ' + claim.status + (claim.requestedAt ? " · requested " + timeAgo(claim.requestedAt) : "") + '</div>' : '') +
+      '</div>'
+    );
+  }
+
+  // ---------- business detail drawer ----------
+  function businessDrawerHtml(b) {
+    var status = claimStatus(b.id);
+    var statusLabel = status === "claimed" ? "Claimed" : status === "pending" ? "Pending review" : "Unclaimed";
+    var launch = state.launches[b.id];
+    var symbol = deriveSymbol(b.name);
+
+    var html =
+      '<div class="drawer-head">' +
+        '<div class="drawer-avatar" style="background:' + avatarColor(b.name) + ';">' + esc(initialFor(b.name)) + '</div>' +
+        '<div>' +
+          '<div class="drawer-title">' + esc(b.name) + '</div>' +
+          '<div class="drawer-meta">' + esc(b.category || "Uncategorized") + (b.city ? " · " + esc(b.city) : "") + '</div>' +
+        '</div>' +
+        '<button class="drawer-close" type="button" data-action="close-drawer" aria-label="Close">✕</button>' +
+      '</div>';
+
+    html +=
+      '<div class="drawer-section">' +
+        '<div class="drawer-section-title">Token</div>' +
+        '<div class="drawer-row"><span>Symbol</span><span class="v t-sym ' + status + '">$' + symbol + '</span></div>' +
+        '<div class="drawer-row"><span>Claim status</span><span class="v"><span class="status-pill ' + status + '">' + statusLabel + '</span></span></div>' +
+        '<div class="drawer-row"><span>Current launch fee</span><span class="v">' + (liveLaunchFee ? ethers.formatEther(liveLaunchFee) + " ETH" : "…") + '</span></div>' +
+      '</div>';
+
+    html += '<div class="drawer-section">';
+    if (launch) {
+      html +=
+        '<div class="drawer-section-title">Launch record</div>' +
+        '<div class="drawer-row"><span>Transaction</span><span class="v">' + short(launch.txHash) + '</span></div>' +
+        (launch.tokenAddress ? '<div class="drawer-row"><span>Token contract</span><span class="v">' + short(launch.tokenAddress) + '</span></div>' : '') +
+        (launch.launchedBy ? '<div class="drawer-row"><span>Launched by</span><span class="v">' + short(launch.launchedBy) + '</span></div>' : '') +
+        (launch.launchedAt ? '<div class="drawer-row"><span>Launched</span><span class="v">' + timeAgo(launch.launchedAt) + '</span></div>' : '') +
+        (launch.registeredManually ? '<div class="drawer-row"><span>Source</span><span class="v">registered manually</span></div>' : '') +
+        '<div class="drawer-actions"><a class="btn btn-outline btn-small" href="' + EXPLORER + '/tx/' + launch.txHash + '" target="_blank" rel="noopener">View on chain explorer</a></div>';
+    } else {
+      html +=
+        '<div class="drawer-section-title">Launch record</div>' +
+        '<div class="drawer-desc">Not launched yet — use the Launch button on this listing to stage its token.</div>';
+    }
+    html += '</div>';
+
+    html +=
+      '<div class="drawer-section">' +
+        '<div class="drawer-section-title">About</div>' +
+        '<div class="drawer-desc">' + esc(b.description || "No description yet.") + ' Unofficial — not created by or affiliated with this business unless claimed.</div>' +
+      '</div>';
+
+    html +=
+      '<div class="drawer-section">' +
+        '<div class="drawer-actions">' +
+          '<button class="btn btn-accent btn-small" data-action="manage-claim" data-id="' + b.id + '">Manage claim</button>' +
+          (b.mapsUrl ? '<a class="btn btn-outline btn-small" href="' + esc(b.mapsUrl) + '" target="_blank" rel="noopener">Open in Google Maps</a>' : '') +
+        '</div>' +
+      '</div>';
+
+    return html;
+  }
+
+  function openBusinessDrawer(id) {
+    var b = allBusinesses().find(function (x) { return x.id === id; });
+    if (!b) return;
+    activeDrawerId = id;
+    document.getElementById("drawerBody").innerHTML = businessDrawerHtml(b);
+    document.getElementById("drawerOverlay").classList.add("open");
+    document.getElementById("businessDrawer").classList.add("open");
+    document.getElementById("businessDrawer").setAttribute("aria-hidden", "false");
+  }
+  function closeBusinessDrawer() {
+    activeDrawerId = null;
+    document.getElementById("drawerOverlay").classList.remove("open");
+    document.getElementById("businessDrawer").classList.remove("open");
+    document.getElementById("businessDrawer").setAttribute("aria-hidden", "true");
+  }
+  document.getElementById("drawerOverlay").addEventListener("click", closeBusinessDrawer);
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && activeDrawerId) closeBusinessDrawer();
+  });
+
+  function rowHtml(b) {
+    var status = claimStatus(b.id);
+    var statusLabel = status === "claimed" ? "Claimed" : status === "pending" ? "Pending" : "Unclaimed";
+    var launch = state.launches[b.id];
+    var symbol = deriveSymbol(b.name);
+    var isOpen = expandedClaim === b.id;
+    var claim = state.claims[b.id];
+
+    var row =
+      '<div class="t-row" data-row-id="' + b.id + '">' +
+        '<div class="t-biz">' +
+          '<div class="t-biz-avatar" style="background:' + avatarColor(b.name) + ';">' + esc(initialFor(b.name)) + '</div>' +
+          '<div class="t-biz-info"><span class="t-biz-name">' + esc(b.name) + '</span><span class="t-biz-meta">' + esc(b.city) + '</span></div>' +
+        '</div>' +
+        '<span class="t-sym ' + status + '">$' + symbol + '</span>' +
+        '<span class="status-pill ' + status + '">' + statusLabel + '</span>' +
+        '<span>' + esc(b.category) + '</span>' +
+        '<span class="t-fee">' + (liveLaunchFee ? ethers.formatEther(liveLaunchFee) : "…") + ' ETH</span>' +
+        '<div class="t-actions">' +
+          '<button class="btn btn-outline btn-small" data-action="view-business" data-id="' + b.id + '">View</button>' +
+          '<button class="btn btn-outline btn-small" data-action="toggle-claim" data-id="' + b.id + '">' + (isOpen ? "Close" : "Claim") + '</button>' +
+          '<button class="btn btn-small" data-action="launch" data-id="' + b.id + '"' + (launch ? " disabled" : "") + '>' + (launch ? "Launched" : "Launch") + '</button>' +
+        '</div>' +
+      '</div>';
+
+    if (isOpen || launch) {
+      var launchedLine = launch
+        ? '<a class="tx-link" href="' + EXPLORER + '/tx/' + launch.txHash + '" target="_blank" rel="noopener">token deployed → ' + short(launch.txHash) + (launch.tokenAddress ? " · " + short(launch.tokenAddress) : "") + (launch.registeredManually ? " · registered manually" : "") + '</a>'
+        : "";
+      row +=
+        '<div class="expand-row">' +
+          '<div class="disclaimer-line">' + esc(b.description) + ' Unofficial — not created by or affiliated with this business unless claimed.</div>' +
+          (launchedLine ? '<div style="margin-top:6px;">' + launchedLine + '</div>' : '') +
+          (b.mapsUrl ? '<div style="margin-top:4px;"><a class="tx-link" href="' + esc(b.mapsUrl) + '" target="_blank" rel="noopener">Google Maps listing ↗</a></div>' : '') +
+          (isOpen ? claimPanelHtml(b, claim) : '') +
+        '</div>';
+    }
+    return row;
+  }
+
+  function renderTable() {
+    var list = filteredList();
+    document.getElementById("tableBody").innerHTML = list.map(rowHtml).join("");
+    var emptyEl = document.getElementById("emptyState");
+    emptyEl.hidden = list.length !== 0;
+    emptyEl.textContent = allBusinesses().length === 0
+      ? "No listings yet — launch the first one above, or register one already launched elsewhere."
+      : "No listings match that search/filter.";
+    document.getElementById("listingCount").textContent = list.length + " of " + allBusinesses().length + " shown";
+  }
+
+  function renderQueue() {
+    var pending = allBusinesses()
+      .map(function (b) { return { b: b, c: state.claims[b.id] }; })
+      .filter(function (row) { return row.c && row.c.status === "pending"; });
+    var box = document.getElementById("queueBox");
+    var empty = document.getElementById("queueEmpty");
+    var rows = box.querySelectorAll(".queue-row:not(:first-child)");
+    rows.forEach(function (r) { r.remove(); });
+    if (pending.length === 0) {
+      empty.hidden = false;
+      return;
+    }
+    empty.hidden = true;
+    pending.forEach(function (row) {
+      var el = document.createElement("div");
+      el.className = "queue-row";
+      var domainFlag = row.c.domainMatch === true ? " ✓" : row.c.domainMatch === false ? " ⚠" : "";
+      el.innerHTML =
+        '<span class="truncate">' + esc(row.b.name) + '</span>' +
+        '<span class="mono truncate">' + esc(row.c.email || "—") + domainFlag + '</span>' +
+        '<span class="truncate">' + esc(row.c.note || "—") + '</span>' +
+        '<span class="mono">' + timeAgo(row.c.requestedAt) + '</span>' +
+        '<div style="display:flex; gap:6px; flex-wrap:wrap;">' +
+          '<button class="btn btn-outline btn-small" data-action="approve-claim" data-id="' + row.b.id + '">Mark claimed</button>' +
+          '<button class="btn btn-outline btn-small" data-action="dismiss-claim" data-id="' + row.b.id + '">Dismiss</button>' +
+        '</div>';
+      box.appendChild(el);
+    });
+  }
+
+  function renderLaunchLog() {
+    var list = document.getElementById("launchLogList");
+    var empty = document.getElementById("launchLogEmpty");
+    if (!list) return;
+    var rows = allBusinesses()
+      .map(function (b) { return { b: b, l: state.launches[b.id] }; })
+      .filter(function (row) { return !!row.l; })
+      .sort(function (x, y) { return new Date(y.l.launchedAt || 0) - new Date(x.l.launchedAt || 0); });
+
+    if (rows.length === 0) {
+      list.innerHTML = "";
+      empty.hidden = false;
+      return;
+    }
+    empty.hidden = true;
+    list.innerHTML = rows.map(function (row) {
+      var b = row.b, l = row.l;
+      return '<div class="port-row">' +
+        '<div class="t-biz-avatar" style="background:' + avatarColor(b.name) + ';">' + esc(initialFor(b.name)) + '</div>' +
+        '<div class="port-row-info">' +
+          '<span class="port-row-name">' + esc(b.name) + '</span>' +
+          '<span class="port-row-meta">' + short(l.launchedBy || "") + (l.launchedAt ? ' · ' + timeAgo(l.launchedAt) : '') + (l.registeredManually ? ' · registered manually' : '') + '</span>' +
+        '</div>' +
+        '<div class="port-row-action">' +
+          '<a class="btn btn-outline btn-small" href="' + EXPLORER + '/tx/' + l.txHash + '" target="_blank" rel="noopener">Explorer</a>' +
+        '</div>' +
+      '</div>';
+    }).join("");
+  }
+
+  document.getElementById("adminTabs").addEventListener("click", function (e) {
+    var tab = e.target.closest(".tab");
+    if (!tab) return;
+    var view = tab.getAttribute("data-admin-view");
+    Array.prototype.forEach.call(document.getElementById("adminTabs").children, function (t) { t.classList.toggle("active", t === tab); });
+    document.getElementById("adminClaimsView").hidden = view !== "claims";
+    document.getElementById("adminLaunchesView").hidden = view !== "launches";
+    if (view === "launches") renderLaunchLog();
+  });
+
+  // ---------- portfolio ----------
+  function renderPortfolio() {
+    var body = document.getElementById("portfolioBody");
+    if (!body) return;
+
+    if (!state.wallet) {
+      body.innerHTML =
+        '<div class="port-prompt">' +
+          '<p>Connect your wallet to see the tokens you’ve launched and any payout wallets you’ve set on claimed listings.</p>' +
+          '<button class="btn btn-accent btn-small" id="portfolioConnectBtn" type="button">Connect wallet</button>' +
+        '</div>';
+      var connectBtn = document.getElementById("portfolioConnectBtn");
+      if (connectBtn) connectBtn.addEventListener("click", connectWallet);
+      return;
+    }
+
+    var mine = state.wallet.toLowerCase();
+    var launched = allBusinesses().filter(function (b) {
+      var l = state.launches[b.id];
+      return l && l.launchedBy && l.launchedBy.toLowerCase() === mine;
+    });
+    var payouts = allBusinesses()
+      .map(function (b) { return { b: b, c: state.claims[b.id] }; })
+      .filter(function (row) { return row.c && row.c.payoutWallet && row.c.payoutWallet.toLowerCase() === mine; });
+
+    if (launched.length === 0 && payouts.length === 0) {
+      body.innerHTML =
+        '<div class="port-prompt">' +
+          '<p>Nothing tied to <span class="mono">' + short(state.wallet) + '</span> yet — launch a token, or get a claim verified with a payout wallet set to this address, and it’ll show up here.</p>' +
+        '</div>';
+      return;
+    }
+
+    var groups = "";
+    if (launched.length) {
+      groups +=
+        '<div class="port-group">' +
+          '<div class="port-group-title">Tokens launched by ' + short(state.wallet) + ' (' + launched.length + ')</div>' +
+          '<div class="port-list">' +
+            launched.map(function (b) {
+              var l = state.launches[b.id];
+              return '<div class="port-row">' +
+                '<div class="t-biz-avatar" style="background:' + avatarColor(b.name) + ';">' + esc(initialFor(b.name)) + '</div>' +
+                '<div class="port-row-info"><span class="port-row-name">' + esc(b.name) + '</span><span class="port-row-meta">$' + deriveSymbol(b.name) + ' · launched ' + timeAgo(l.launchedAt) + '</span></div>' +
+                '<div class="port-row-action"><button class="btn btn-outline btn-small" data-action="view-business" data-id="' + b.id + '">View</button></div>' +
+              '</div>';
+            }).join("") +
+          '</div>' +
+        '</div>';
+    }
+    if (payouts.length) {
+      groups +=
+        '<div class="port-group">' +
+          '<div class="port-group-title">Payout wallets set to ' + short(state.wallet) + ' (' + payouts.length + ')</div>' +
+          '<div class="port-list">' +
+            payouts.map(function (row) {
+              return '<div class="port-row">' +
+                '<div class="t-biz-avatar" style="background:' + avatarColor(row.b.name) + ';">' + esc(initialFor(row.b.name)) + '</div>' +
+                '<div class="port-row-info"><span class="port-row-name">' + esc(row.b.name) + '</span><span class="port-row-meta">fees reassigned here via pons.family’s Community Takeover</span></div>' +
+                '<div class="port-row-action"><button class="btn btn-outline btn-small" data-action="view-business" data-id="' + row.b.id + '">View</button></div>' +
+              '</div>';
+            }).join("") +
+          '</div>' +
+        '</div>';
+    }
+    body.innerHTML = '<div class="stack" style="gap:16px;">' + groups + '</div>';
+  }
+
+  // ---------- toolbar events ----------
+  document.getElementById("searchInput").addEventListener("input", function (e) {
+    filters.search = e.target.value;
+    renderTable();
+  });
+  document.getElementById("viewTabs").addEventListener("click", function (e) {
+    var tab = e.target.closest(".tab");
+    if (!tab) return;
+    filters.view = tab.getAttribute("data-view");
+    Array.prototype.forEach.call(document.getElementById("viewTabs").children, function (t) { t.classList.toggle("active", t === tab); });
+    renderTable();
+  });
+  document.getElementById("categoryChips").addEventListener("click", function (e) {
+    var chip = e.target.closest(".tab");
+    if (!chip) return;
+    var cat = chip.getAttribute("data-cat");
+    filters.category = filters.category === cat ? "All" : cat;
+    renderChips();
+    renderTable();
+  });
+
+  // ---------- actions ----------
+  document.addEventListener("click", async function (e) {
+    var target = e.target.closest("[data-action]");
+    if (!target) return;
+    var action = target.getAttribute("data-action");
+    var id = target.getAttribute("data-id");
+    var business = allBusinesses().find(function (b) { return b.id === id; });
+
+    if (action === "toggle-claim") {
+      expandedClaim = expandedClaim === id ? null : id;
+      renderTable();
+      return;
+    }
+
+    if (action === "view-business") {
+      openBusinessDrawer(id);
+      return;
+    }
+
+    if (action === "close-drawer") {
+      closeBusinessDrawer();
+      return;
+    }
+
+    if (action === "manage-claim") {
+      closeBusinessDrawer();
+      expandedClaim = id;
+      renderTable();
+      var row = document.querySelector('.t-row[data-row-id="' + id + '"]');
+      if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    if (action === "submit-claim") {
+      var emailEl = document.getElementById("email-" + id);
+      var email = emailEl ? emailEl.value.trim() : "";
+      if (!isPlausibleEmail(email)) { alert("Enter a valid email address first."); return; }
+      var noteEl = document.getElementById("note-" + id);
+      var note = noteEl ? noteEl.value.trim() : "";
+      if (!db) { alert("Shared claim storage isn't available in this view, so the request can't be recorded. Try reopening the page."); return; }
+      target.disabled = true;
+      try {
+        var biz = allBusinesses().find(function (x) { return x.id === id; });
+        var domainMatch = biz && biz.website ? (emailDomain(email) === biz.website.toLowerCase()) : null;
+        await db.doc("claims/" + id).set({
+          status: "pending",
+          email: email,
+          domainMatch: domainMatch,
+          note: note,
+          requestedAt: new Date().toISOString()
+        });
+        alert("Claim request submitted for " + email + ". No verification email is actually sent by this demo page — a person reviews the queue below and confirms it manually.");
+      } catch (err) {
+        alert("Couldn't submit the claim: " + (err && err.message ? err.message : err));
+      }
+      target.disabled = false;
+      return;
+    }
+
+    if (action === "approve-claim") {
+      if (!db) return;
+      target.disabled = true;
+      try {
+        await db.doc("claims/" + id).update({ status: "claimed", reviewedAt: new Date().toISOString() });
+      } catch (err) {
+        alert("Couldn't update the claim: " + (err && err.message ? err.message : err));
+      }
+      target.disabled = false;
+      return;
+    }
+
+    if (action === "dismiss-claim") {
+      if (!db) return;
+      if (!confirm("Dismiss this claim request? The listing goes back to unclaimed and can be claimed again.")) return;
+      target.disabled = true;
+      try {
+        await db.doc("claims/" + id).update({ status: "dismissed", reviewedAt: new Date().toISOString() });
+      } catch (err) {
+        alert("Couldn't dismiss the claim: " + (err && err.message ? err.message : err));
+      }
+      target.disabled = false;
+      return;
+    }
+
+    if (action === "set-payout-wallet") {
+      var payoutEl = document.getElementById("payout-" + id);
+      var payoutWallet = payoutEl ? payoutEl.value.trim() : "";
+      if (!ethers.isAddress(payoutWallet)) { alert("That doesn't look like a valid wallet address."); return; }
+      if (BLOCKED_ADDRESSES.indexOf(payoutWallet.toLowerCase()) !== -1) {
+        alert("Refusing to save this address — it matches a known bait address, not a real payout wallet.");
+        return;
+      }
+      if (!db) return;
+      target.disabled = true;
+      try {
+        await db.doc("claims/" + id).update({ payoutWallet: payoutWallet, payoutWalletSetAt: new Date().toISOString() });
+      } catch (err) {
+        alert("Couldn't save the payout wallet: " + (err && err.message ? err.message : err));
+      }
+      target.disabled = false;
+      return;
+    }
+
+    if (action === "register-launch") {
+      var hashEl = document.getElementById("registerTxHash");
+      var bizEl = document.getElementById("registerBusiness");
+      var txHash = hashEl ? hashEl.value.trim() : "";
+      var bizId = bizEl ? bizEl.value : "";
+      if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) { alert("That doesn't look like a transaction hash."); return; }
+      if (!bizId) { alert("Pick which listing this launch belongs to."); return; }
+      target.disabled = true;
+      target.textContent = "Checking chain…";
+      try {
+        var rec = await readProvider.getTransactionReceipt(txHash);
+        if (!rec) throw new Error("Transaction not found on Robinhood Chain (or not confirmed yet).");
+        if (rec.to && rec.to.toLowerCase() !== FACTORY_ADDRESS.toLowerCase()) {
+          throw new Error("That transaction wasn't sent to the verified pons.family factory contract, so it can't be registered here.");
+        }
+        var iface2 = new ethers.Interface(FACTORY_ABI);
+        var tokenAddr = null;
+        for (var k = 0; k < rec.logs.length; k++) {
+          try {
+            var p = iface2.parseLog(rec.logs[k]);
+            if (p && p.name === "TokenLaunched") { tokenAddr = p.args.token; break; }
+          } catch (e3) {}
+        }
+        if (!tokenAddr) throw new Error("No TokenLaunched event found in that transaction.");
+        if (!db) throw new Error("Shared storage isn't available in this view.");
+        await db.doc("launches/" + bizId).set({
+          txHash: txHash,
+          tokenAddress: tokenAddr,
+          launchedBy: rec.from,
+          launchedAt: new Date().toISOString(),
+          registeredManually: true
+        });
+        alert("Registered — verified on-chain against the real factory contract and added to this listing.");
+        if (hashEl) hashEl.value = "";
+      } catch (err) {
+        alert("Couldn't register that launch: " + (err && err.message ? err.message : err));
+      }
+      target.disabled = false;
+      target.textContent = "Register launch";
+      return;
+    }
+
+    if (action === "launch") {
+      if (!business) return;
+      if (!state.wallet) { await connectWallet(); if (!state.wallet) return; }
+      if (!state.chainOk) { alert("Switch your wallet to Robinhood Chain first (the connect button attempts this automatically)."); return; }
+
+      var feeWallet = state.wallet;
+      if (BLOCKED_ADDRESSES.indexOf(feeWallet.toLowerCase()) !== -1) {
+        alert("Refusing to use this address — it matches a known bait address, not your real wallet.");
+        return;
+      }
+
+      target.disabled = true;
+      target.textContent = "Reading config…";
+      try {
+        var cfg = await resolveDefaultConfig();
+        var factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, state.signer);
+        var fee = liveLaunchFee || await factory.launchFee();
+
+        var params = {
+          name: business.name,
+          symbol: deriveSymbol(business.name),
+          logo: "",
+          description: business.description + " Unofficial community token launched via " + PROJECT_NAME + " — not created by or affiliated with the business.",
+          socials: { twitter: "", telegram: "", discord: "", website: "", farcaster: "" },
+          feeWallet: feeWallet
+        };
+
+        target.textContent = "Confirm in wallet…";
+        var tx = await factory.launchToken(params, cfg.launchConfigId, cfg.dexId, ethers.ZeroHash, { value: fee });
+        target.textContent = "Confirming…";
+        var receipt = await tx.wait();
+
+        var tokenAddress = null;
+        var iface = new ethers.Interface(FACTORY_ABI);
+        for (var i = 0; i < receipt.logs.length; i++) {
+          try {
+            var parsed = iface.parseLog(receipt.logs[i]);
+            if (parsed && parsed.name === "TokenLaunched") { tokenAddress = parsed.args.token; break; }
+          } catch (e2) {}
+        }
+
+        if (db) {
+          await db.doc("launches/" + id).set({
+            txHash: tx.hash,
+            tokenAddress: tokenAddress,
+            launchedBy: state.wallet,
+            launchedAt: new Date().toISOString()
+          });
+        } else {
+          state.launches[id] = { txHash: tx.hash, tokenAddress: tokenAddress, launchedBy: state.wallet, launchedAt: new Date().toISOString() };
+        }
+        renderTable();
+        renderStats();
+        renderMap();
+        renderPortfolio();
+        renderLaunchLog();
+      } catch (err) {
+        alert("Launch failed or was rejected: " + (err && err.message ? err.message : err));
+        target.disabled = false;
+        target.textContent = "Launch";
+      }
+      return;
+    }
+  });
+
+  // ---------- boot ----------
+  function populateRegisterSelect() {
+    var sel = document.getElementById("registerBusiness");
+    var current = sel.value;
+    sel.innerHTML = '<option value="">Which listing?</option>';
+    allBusinesses().forEach(function (b) {
+      var opt = document.createElement("option");
+      opt.value = b.id;
+      opt.textContent = b.name;
+      sel.appendChild(opt);
+    });
+    if (current && allBusinesses().some(function (b) { return b.id === current; })) sel.value = current;
+  }
+  populateRegisterSelect();
+  activePin = allBusinesses().length ? allBusinesses()[0].id : null;
+  renderChips();
+  renderTable();
+  renderStats();
+  renderQueue();
+  renderMap();
+  renderPortfolio();
+  initDb();
+})();
+</script>
