@@ -17,15 +17,10 @@
   Firebase (compat SDK) — only used when this page is NOT running inside a
   Cowork Artifact (see firebaseConfig + initDb() below). If you're viewing
   this inside claude.ai's Artifact preview, window.claude.use("db") is used
-  instead for data, and direct PNG upload (storage, below) simply isn't
-  offered there — the "paste a URL" field still works everywhere.
-  firebase-storage-compat.js backs the "upload a PNG" option on the launch
-  form (see backend/storage.rules + backend/README.md "Cloud Storage" for
-  the one-time setup this needs on the real, deployed site).
+  instead and these two scripts are simply unused.
 -->
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
 
 <style>
   :root {
@@ -616,10 +611,8 @@
           <input class="search-input" id="newBizWebsite" placeholder="business-website.com">
         </label>
         <label class="launch-field">
-          <span>Token image (optional)</span>
-          <input type="file" id="newBizLogoFile" accept="image/png,.png" style="margin-bottom:6px;">
-          <span id="newBizLogoUploadHint" class="launch-hint" hidden style="margin-bottom:6px;"></span>
-          <input class="search-input" id="newBizLogoUrl" placeholder="…or paste a direct https:// image link">
+          <span>Token image (optional, direct https:// link)</span>
+          <input class="search-input" id="newBizLogoUrl" placeholder="https://example.com/logo.png">
           <img id="newBizLogoPreview" alt="" hidden style="width:40px;height:40px;border-radius:8px;object-fit:cover;margin-top:6px;">
           <span id="newBizLogoPreviewHint" class="launch-hint" hidden style="margin-top:6px;"></span>
         </label>
@@ -1046,7 +1039,6 @@
   var filters = { search: "", category: "All", view: "all" };
   var activePin = null;
   var db = null;
-  var storage = null;
   var pendingLaunch = null;
   var activeDrawerId = null;
 
@@ -1156,28 +1148,14 @@
     try {
       if (window.claude && window.claude.use) {
         db = await window.claude.use("db");
-        // No direct-upload capability in the Artifact preview environment —
-        // storage stays null and the launch form's file input hides itself,
-        // leaving the "paste a URL" field as the only image option there.
       } else if (window.firebase && firebaseConfig.apiKey.indexOf("REPLACE_WITH") !== 0) {
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         db = firebase.firestore();
-        try {
-          storage = firebase.storage();
-        } catch (storageErr) {
-          // Cloud Storage needs the Firebase project on the Blaze plan (see
-          // backend/README.md) — if it's not set up yet, storage stays null
-          // and uploadLogoPng() below falls back to the URL field instead
-          // of throwing partway through a launch.
-          console.warn("Firebase Storage isn't available — PNG upload will be hidden; paste-a-URL still works.", storageErr);
-          storage = null;
-        }
       }
     } catch (err) {
       console.warn("Shared storage failed to initialize — falling back to local, per-visitor state.", err);
       db = null;
     }
-    updateLogoUploadAvailability();
     if (!db) return;
     db.collection("claims").onSnapshot(function (snap) {
       var next = {};
@@ -1397,81 +1375,6 @@
   }
   document.getElementById("newBizLogoUrl").addEventListener("input", updateNewBizLogoPreview);
 
-  // ---------- direct PNG upload (Firebase Storage, backend/storage.rules) ----------
-  // Uploads straight to Cloud Storage and drops the resulting https:// download
-  // URL into the same #newBizLogoUrl field the paste-a-link flow already uses,
-  // so every downstream piece (preview, validateLogoUrl's length/https check,
-  // the on-chain `logo` field, the launches/{id}.logoUrl write) needs zero
-  // changes — this is purely a second way to fill that one field.
-  var MAX_LOGO_FILE_BYTES = 2 * 1024 * 1024; // 2MB is plenty for a token icon and keeps Storage cheap
-
-  // Called once at load (storage is still null then, so the file input starts
-  // hidden) and again once initDb() resolves — either the real thing turns on,
-  // or a clear explanation appears for why it can't here (see initDb() above).
-  function updateLogoUploadAvailability() {
-    var fileInput = document.getElementById("newBizLogoFile");
-    var hint = document.getElementById("newBizLogoUploadHint");
-    if (!fileInput || !hint) return;
-    if (storage) {
-      fileInput.hidden = false;
-      fileInput.disabled = false;
-      hint.hidden = true;
-    } else {
-      fileInput.hidden = true;
-      hint.hidden = false;
-      hint.className = "launch-hint";
-      hint.textContent = "Direct PNG upload isn't available in this preview — paste a direct image URL below instead.";
-    }
-  }
-  updateLogoUploadAvailability();
-
-  async function uploadLogoPng(file) {
-    var fileInput = document.getElementById("newBizLogoFile");
-    var hint = document.getElementById("newBizLogoUploadHint");
-    hint.hidden = false;
-
-    if (!storage) {
-      hint.className = "launch-hint warn";
-      hint.textContent = "Direct upload isn't available right now — paste a direct image URL below instead.";
-      fileInput.value = "";
-      return;
-    }
-    var looksLikePng = file.type === "image/png" || /\.png$/i.test(file.name || "");
-    if (!looksLikePng) {
-      hint.className = "launch-hint warn";
-      hint.textContent = "Only PNG files can be uploaded directly — for other formats, host it elsewhere and paste a direct image URL below instead.";
-      fileInput.value = "";
-      return;
-    }
-    if (file.size > MAX_LOGO_FILE_BYTES) {
-      hint.className = "launch-hint warn";
-      hint.textContent = "That PNG is " + (file.size / (1024 * 1024)).toFixed(1) + "MB — 2MB max for a token icon. Resize it and try again, or paste a URL instead.";
-      fileInput.value = "";
-      return;
-    }
-
-    hint.className = "launch-hint";
-    hint.textContent = "Uploading…";
-    fileInput.disabled = true;
-    try {
-      var path = "token-logos/" + Date.now() + "-" + Math.random().toString(36).slice(2, 10) + ".png";
-      var snapshot = await storage.ref(path).put(file, { contentType: "image/png" });
-      var url = await snapshot.ref.getDownloadURL();
-      document.getElementById("newBizLogoUrl").value = url;
-      updateNewBizLogoPreview();
-      hint.className = "launch-hint ok";
-      hint.textContent = "Uploaded — see the preview below.";
-    } catch (err) {
-      hint.className = "launch-hint warn";
-      hint.textContent = "Upload failed: " + (err && err.message ? err.message : err) + " — you can paste a direct image URL below instead.";
-    }
-    fileInput.disabled = false;
-  }
-  document.getElementById("newBizLogoFile").addEventListener("change", function () {
-    var file = this.files && this.files[0];
-    if (file) uploadLogoPng(file);
-  });
-
   document.getElementById("mapsPrefillBtn").addEventListener("click", function () {
     var input = document.getElementById("mapsUrlInput");
     var hint = document.getElementById("mapsHint");
@@ -1491,7 +1394,6 @@
     document.getElementById("newBizCity").value = parsed.city || "";
     document.getElementById("newBizWebsite").value = "";
     document.getElementById("newBizLogoUrl").value = "";
-    document.getElementById("newBizLogoFile").value = "";
     document.getElementById("newBizDescription").value = parsed.name
       ? ("Local business" + (parsed.city ? " in " + parsed.city : "") + ". Unofficial community token — add more detail here if you'd like.")
       : "";

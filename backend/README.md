@@ -33,45 +33,6 @@ as both the config (step 3) and the rules (step 4) are in place; until then
 it silently falls back to local, per-visitor state, so the site never
 breaks while you're setting this up.
 
-## Cloud Storage (direct PNG upload on the launch form)
-
-The "Token image" field on the launch form can upload a PNG straight from
-the visitor's computer instead of requiring a URL — that goes through
-Cloud Storage for Firebase, not Firestore, so it needs its own one-time
-setup:
-
-1. **This needs the Blaze (pay-as-you-go) plan, not Spark.** As of Google's
-   September 2024 change, Cloud Storage for Firebase no longer works at all
-   on the free Spark plan — you'll need to add a billing account (a card on
-   file) in the Firebase console to even open the Storage tab. Real-world
-   cost for this feature should still land at or near $0/month for a small
-   site: a 2MB-per-file cap is enforced by `storage.rules` below, and
-   typical usage stays inside Google Cloud Storage's "Always Free" monthly
-   tier for buckets in `us-central1`/`us-east1`/`us-west1` — but it's a real
-   billing account attached to a real card, so keep an eye on it, and know
-   this before turning the feature on. If you'd rather not do this, the
-   "paste a URL" field keeps working with zero setup either way — the file
-   input hides itself automatically when Storage isn't configured (see
-   `updateLogoUploadAvailability()` in `frontend/index.html`).
-2. In the Firebase console, open **Build > Storage** and click **Get
-   started** to create the project's default bucket (this is what prompts
-   the Blaze upgrade if you haven't already).
-3. Deploy the storage rules in this folder:
-   ```bash
-   cd backend
-   firebase deploy --only storage
-   ```
-   (`firebase.json` in this folder already points at `storage.rules`.)
-4. That's it — no config values to copy. `frontend/index.html` reads the
-   bucket name from the same `firebaseConfig.storageBucket` already set for
-   Firestore.
-
-`storage.rules` caps uploads at 2MB and requires `contentType ==
-'image/png'`, but — same limitation as `firestore.rules` below — it can't
-check *who* is uploading, only *what*. That's an acceptable trust
-trade-off for a small community site, not a mistake; revisit it if this
-gets real traffic.
-
 ## Changing the data model
 
 If a field is added to a `businesses`/`launches`/`claims` document in
