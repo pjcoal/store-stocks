@@ -1,0 +1,33 @@
+rules_version = '2';
+
+// Store Stocks — Cloud Storage security rules.
+//
+// Backs the "upload a PNG" option on the launch form (frontend/index.html,
+// uploadLogoPng()). Same trust model as firestore.rules (see that file's
+// header and this folder's README "Known limitation: no admin auth yet"):
+// there's no login system, so these rules can only enforce *shape* (file
+// type, size) — not *who* is uploading. Anyone with the site open can
+// upload a PNG here, same as anyone can already write a businesses/launches
+// doc directly. The size + content-type caps exist to keep that from being
+// an easy way to run up storage costs or serve non-image files from this
+// bucket, not to gate who may launch a token.
+service firebase.storage {
+  match /b/{bucket}/o {
+    // One file per upload, named by the client as
+    // token-logos/<timestamp>-<random>.png — see uploadLogoPng() in
+    // frontend/index.html. Never overwritten (the random suffix makes a
+    // collision practically impossible) and never deleted from here.
+    match /token-logos/{fileName} {
+      allow read: if true;
+      allow write: if fileName.matches('.*\\.png')
+        && request.resource.size <= 2 * 1024 * 1024
+        && request.resource.contentType == 'image/png';
+      allow delete: if false;
+    }
+    // Everything else in this bucket is closed by default (no other path
+    // is written to by this site).
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

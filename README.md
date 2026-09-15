@@ -246,6 +246,27 @@ Three follow-on asks after the update above:
    Places key embedded in this static frontend is visible to anyone) before
    it should be.
 
+### Update — direct PNG upload for the token image
+
+The launch form's "Token image" field now offers a real file picker
+("Upload a PNG") right above the existing "paste a URL" field — pick a PNG
+from your computer and it uploads to Cloud Storage for Firebase, then fills
+the URL field with the resulting link automatically (so the existing
+preview, validation, and on-chain `logo`/`launches/{id}.logoUrl` wiring all
+just work unchanged — see `uploadLogoPng()` in `frontend/index.html`).
+Capped at 2MB per file, PNG only (enforced both client-side and by
+`backend/storage.rules`); paste-a-URL is still there for anyone who'd
+rather host the image elsewhere, or for other file formats.
+
+**This needs a one-time setup step you haven't done yet, and it costs
+real money to turn on (usually $0/month at this site's scale, but a real
+card on file).** Cloud Storage for Firebase now requires the paid Blaze
+plan even for light use — see `backend/README.md`'s new "Cloud Storage"
+section for exactly what to click and why. Until that's done, the upload
+button hides itself automatically (`updateLogoUploadAvailability()`) and
+the URL field keeps working exactly as before — nothing breaks, the new
+option just won't appear yet.
+
 ## Setup
 
 ```bash
