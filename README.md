@@ -88,69 +88,106 @@ and launch config, a matching `launchFee()`, and the identical
 `PONS_LAUNCH_FACTORY_ADDRESS` now both point at v2; the v1 address is kept
 around as `PONS_LAUNCH_FACTORY_ADDRESS_V1_LEGACY` for reference only.
 
-### Update — website link, token image, and the trading-fee payout wallet
+### Update — website link, token image, and a 3% creator tax to a fixed wallet
 
-Three more things were verified directly against the v2 factory's and
-locker's verified source on Blockscout (not the vendored GitHub repo —
-same trust rule as above) before changing anything:
+Three things were requested together: link every launch to
+storestocks.xyz on-chain, let launchers add a token image, and route a 3%
+creator tax on every launch to one fixed wallet. All three were verified
+directly against contract source fetched live from Blockscout (not the
+vendored GitHub repo — same trust rule as above) before writing any code.
 
-1. **On-chain "website" link is a dead field.** `PonsLauncherToken`'s
-   constructor unconditionally overwrites `socials.website` to `""` for
-   every token it deploys, no matter what this site sends:
-   `socials_.website = ""; // The legacy ABI slot remains empty for every
-   newly deployed token.` There is no way to set a real on-chain website
-   link for a launched token. As a workaround, every launch now appends
-   `https://www.storestocks.xyz/` to the token's on-chain `description`
-   instead (the one free-text field that *is* stored as given).
-2. **Token image is a real, working field.** Unlike `website`, `logo` is
-   stored exactly as passed (`logo = logo_;` in the constructor, no
-   wiping). The launch form now has an optional "Token image" URL field,
-   and the quick-launch button on an existing listing prompts for one —
-   both feed straight into `TokenParams.logo`. Deliberately a URL field,
-   not a file upload: `logo` is a `string` in contract storage, so every
-   character costs real gas on-chain — a pasted data URI for even a small
-   image could cost a lot more than the launch fee itself. `validateLogoUrl()`
+**The first pass got the factory wrong, and here's exactly how.** The
+address this project had been calling pons.family's "v2" factory
+(`0xF4fC0CD27fC8EcF17E55eE4c3f7201897dF3eb75`) turned out to be a second,
+*open* deployment of the same old Uniswap-V3-LP-seeding `PonsLaunchFactory`
+contract as the "v1-legacy" address above it — not the bonding-curve
+system pons.family's own live launchpad UI actually uses under its "v2"
+tab. Both addresses are real, verified, on-chain contracts; being
+independently verifiable is what made the wrong one *look* trustworthy.
+The tell was in the UI itself: pons.family's live "v2" launch form has an
+"Advanced" section with a settable "Creator tax %" field ("Traders pay
+1.00% in total, up to 10% of it yours") — a feature the old contract type
+has no equivalent of at all. That mismatch is what prompted re-deriving
+the address from scratch, this time from the strongest form of this
+project's own trust rule: not a JS-bundle text scrape, but the *actual
+eth_call network traffic* pons.family's own page made while genuinely
+loaded in a browser, decoded byte-for-byte (Multicall3 payload → per-call
+`to` address → function selectors matched against `launchFee()`,
+`launchEnabled()`, `canLaunch(address)`, `maxCreatorTaxBps()`,
+`getLaunchConfig(uint256)`, all confirmed by hash). That address —
+`0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e` — is a verified
+`PonsV2LaunchFactory` contract, confirmed independently on-chain
+(`launchEnabled() == true`, `canLaunch()` true for an arbitrary unrelated
+address, live `launchFee`/`launchConfig`/`maxCreatorTaxBps` state matching
+what the UI showed). `frontend/index.html`'s `FACTORY_ADDRESS` and
+`lib/ponsFactory.js`'s `PONS_LAUNCH_FACTORY_ADDRESS` now point at this
+address; the old "open v1-type" address is kept as
+`PONS_LAUNCH_FACTORY_ADDRESS_V1_OPEN_MISLABELED_V2` for reference, and the
+whitelist-gated original as `PONS_LAUNCH_FACTORY_ADDRESS_V1_LEGACY`.
+**Lesson for future work on this file: on-chain verifiability proves a
+contract is real, not that it's the one a given UI flow actually calls —
+that needs the actual call traffic, or the UI's own decoded ABI, not just
+an address found in a bundle.**
+
+This factory is a genuinely different system, not just a config change:
+tokens trade on a per-launch bonding curve (`PonsV2BondingCurve`) until a
+graduation threshold is raised (currently 4.2 ETH for the ETH-paired
+config), then migrate into a Uniswap V4 pool — rather than seeding a
+Uniswap V3 pool immediately the way the old contract did. Its `TokenParams`
+struct is shaped differently too (`creatorFeeRecipient` + `creatorTaxBps`
+instead of `feeWallet`; `pairToken` is a plain address — `address(0)` for
+native ETH — passed alongside `TokenParams`, not chosen via a separate
+`dexId`).
+
+With that corrected, the three asks:
+
+1. **Website link works for real here.** `PonsV2LauncherToken`'s
+   constructor stores `_socials` exactly as given (`_socials = socials_;`,
+   no wiping) — confirmed against its source, unlike the old contract this
+   project first pointed at. Every launch sets `socials.website` to
+   `https://www.storestocks.xyz/` directly, and still appends it to
+   `description` too, since some UIs surface description more prominently
+   than the website field.
+2. **Token image** feeds `TokenParams.logo`, which this contract also
+   stores as given. Same as before: a "Token image" URL field on the
+   launch form, and a prompt on the quick-launch action, both feeding
+   `logo`. Still a URL field, not a file upload — `logo` is a `string` in
+   contract storage, so every character costs real gas; `validateLogoUrl()`
    in `frontend/index.html` requires `https://` and caps it at 500 chars.
-3. **The trading-fee payout wallet.** `PonsLaunchFactory.launchToken()`
-   reads `TokenParams.feeWallet` and, immediately after locking the LP
-   position, calls `PonsLaunchLocker.setFeeRedirect(token, feeWallet)`
-   itself — the factory is one of the locker's permitted callers for that,
-   so this happens atomically in the same transaction as the launch, with
-   no separate signature needed from whoever launches. From then on,
-   `feeWallet` (not the launcher) receives the "creator" share of that
-   token's ongoing Uniswap swap-fee revenue.
+3. **A real, settable 3% creator tax.** This contract genuinely supports
+   it: `creatorTaxBps` is an *additional* trade-fee cut on top of the
+   pool's own base fee (`curveFeeBps`, currently 100 bps = 1.00% for the
+   active launch config), capped by the live `maxCreatorTaxBps()`
+   (currently 1000 bps = 10%) and by
+   `curveFeeBps + creatorTaxBps <= MAX_TOTAL_TRADE_FEE_BPS` (2000 bps =
+   20%). Every launch from this site now sets `creatorTaxBps = 300` (3%,
+   read live against both ceilings before assuming it still fits — either
+   can change) and `creatorFeeRecipient` to a fixed Store Stocks wallet
+   (`0xb12b856fbE3A72aE6794b6e83bf8122FBD00D5eB`, checked against
+   `BLOCKED_ADDRESSES` like any other address). Both are set directly in
+   `TokenParams` and take effect the moment `launchToken()` confirms — no
+   follow-up transaction needed. From then on that wallet, not whoever
+   signs the launch, receives the full 3% creator cut of every trade on
+   that token (on top of pons.family's own 1% base fee, which this site
+   doesn't touch).
 
-   What that share actually is, read live off-chain on 2026-09-15: the
-   active `DexConfig`'s pool fee is a fixed 1% (`poolFee = 10000`) — this
-   is set by pons.family's config, not by `TokenParams`, so there is no way
-   for this site to launch a token with a flat "3% tax"; 1% (currently) is
-   the whole trading fee, full stop. Of that 1%, the locker's
-   `protocolFeeShare` currently reserves 30% (of a possible 50% max) for
-   pons.family; the remaining 70% is the "creator" share this site
-   controls via `feeWallet`.
-
-   As of this update, every launch from this site sets `feeWallet` to a
-   fixed Store Stocks wallet (`0xb12b856fbE3A72aE6794b6e83bf8122FBD00D5eB`,
-   checked against `BLOCKED_ADDRESSES` like any other address), so that
-   wallet — not whoever actually signs the launch — receives 100% of the
-   creator's cut (currently 70% of 1%) of every token's trading fees,
-   permanently, for every token launched here.
-
-   **This conflicts with the "claim your fees" flow documented below.**
-   That flow was built around fees belonging to whoever launched the
-   token, reassignable to the real business owner via pons.family's CTO
-   process once claimed. With every launch now pre-redirecting fees to a
-   fixed platform wallet instead, a business owner who completes the claim
-   flow can no longer actually receive their token's trading fees the way
-   this README describes — the wallet on file for CTO purposes is the
-   platform's, not theirs, and pons.family's review team would have to
-   agree to move it away from an already-designated recipient rather than
-   from an abandoned launcher wallet. It also means this site is now
-   aggregating real trading-fee revenue from other people's tokens into a
-   wallet its owner controls — much closer to the "custodial fees
-   aggregator" pattern the section below explicitly says to get legal
-   advice on before doing. Nothing here decides that question; it's
-   flagged so it doesn't get missed.
+   **This is a deliberate custodial design, confirmed with the site
+   owner.** The "claim your fees" flow documented below was originally
+   built around fees belonging to whoever launched the token, reassignable
+   to the real business owner via pons.family's process once claimed.
+   Routing every launch's creator tax to a fixed platform wallet instead
+   means this site now holds that revenue in escrow rather than it
+   belonging to the launcher by default — by design, per the site owner:
+   held by Store Stocks until a business claims its listing, at which
+   point it's on Store Stocks to move the wallet's share over (this
+   factory's `transferCreatorFeeRecipient`/`setCreatorFeeRecipient`, both
+   timelocked, can do that). That's a real custodial-funds relationship
+   with third parties, closer to the pattern the section below already
+   says to get legal advice on (UK FCA custodial-payments / safeguarding
+   territory) than the original non-custodial design was. This README
+   flags it; it doesn't resolve it — get an actual lawyer's read before
+   this runs at any real volume, same as the existing advice below already
+   says for the business-listing side of things.
 
 ## Setup
 

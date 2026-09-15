@@ -708,45 +708,58 @@
   var CHAIN_ID = 4663;
   var CHAIN_ID_HEX = "0x1237";
   var EXPLORER = "https://robinhoodchain.blockscout.com";
-  // pons.family's "v2" factory — an EIP-1967 proxy to a verified
-  // PonsLaunchFactory implementation with launchEnabled == true (open to
-  // any wallet, no allowlist), unlike the older "v1" factory
-  // (0xA5aAb3F0c6EeadF30Ef1D3Eb997108E976351feB) this used to point at,
-  // which only accepts launches from wallets pons.family has explicitly
-  // whitelisted. Source: pons.family's own live production bundle at
-  // ponsfamily.com/launchpad/create (paired there with its matching locker
-  // contract), independently confirmed on-chain — verified contract,
-  // launchEnabled, an enabled dex + launch config, matching launchFee, and
-  // the same launchToken(...) signature — before being wired in here. See
-  // lib/ponsFactory.js and README.md "Security note" for the full writeup.
-  var FACTORY_ADDRESS = "0xF4fC0CD27fC8EcF17E55eE4c3f7201897dF3eb75";
-  // Embedded in every token's on-chain description so anyone viewing it
-  // directly on pons.family (not just visitors to this site) can tell it's
-  // part of this project, even if this page's own URL isn't public.
+  // pons.family's real "v2" launchpad — a bonding-curve factory
+  // (PonsV2LaunchFactory), distinct from and NOT an upgrade of the
+  // Uniswap-V3-LP-seeding "PonsLaunchFactory" this project used earlier
+  // under the same "v2" label (that one turned out to be a second
+  // deployment of the OLD contract type, just with launchEnabled == true —
+  // see README.md "v2 factory correction" for the full story of how that
+  // mix-up happened and how it was caught). This is the address the
+  // "v2" tab on ponsfamily.com/launchpad/create actually sends
+  // launchToken() transactions to: captured directly from a real
+  // eth_call this site's own JS made while loaded in a live browser
+  // session (network traffic from the running app, not a doc/README —
+  // the strongest form of this project's provenance rule), then
+  // independently confirmed on-chain (verified PonsV2LaunchFactory
+  // source, launchEnabled() == true, canLaunch() == true for an
+  // arbitrary unrelated address, matching launchFee/launchConfig state).
+  var FACTORY_ADDRESS = "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e";
+  // Native-ETH pairing on this factory is represented as the zero address,
+  // not a separate "dex" selector like the old contract used — verified
+  // against its source (`pairToken == address(0)` is the native-ETH branch
+  // throughout `_launchToken`).
+  var PAIR_TOKEN_ETH = ethers.ZeroAddress;
+  // Embedded in every token's on-chain description (and, on this contract,
+  // the real `socials.website` field too — see below) so anyone viewing it
+  // directly on pons.family can tell it's part of this project, even if
+  // this page's own URL isn't public.
   var PROJECT_NAME = "Store Stocks";
-  // PonsLauncherToken's constructor unconditionally wipes the `website`
-  // social field to "" for every token it deploys (verified against the
-  // live factory implementation's source on Blockscout) — there is no
-  // on-chain field this site can set for a real website link. The only
-  // place a link can survive is the free-text `description`, so every
-  // launch appends this URL there instead.
+  // Unlike the old factory this project first pointed at (whose token
+  // contract unconditionally wiped `socials.website` to "" — see
+  // README.md), PonsV2LauncherToken's constructor stores `_socials` exactly
+  // as given: `_socials = socials_;`, verified directly against its source
+  // on Blockscout. So this now works as a real on-chain website link, and
+  // is also still appended to the description for visibility in UIs that
+  // show description more prominently than the website field.
   var PROJECT_URL = "https://www.storestocks.xyz/";
-  // Every token launched from this site sends its on-chain "creator fee"
-  // share here instead of to the wallet that signs the launch. Mechanics
-  // (verified against the live factory + locker source on Blockscout):
-  // PonsLaunchFactory.launchToken() takes TokenParams.feeWallet and, right
-  // after locking the LP position, calls the locker's setFeeRedirect(token,
-  // feeWallet) itself — the factory is one of the locker's permitted
-  // callers for that, so this happens atomically in the same transaction,
-  // no separate signature needed from whoever launches. From then on this
-  // wallet (not the launcher) receives the "creator" share of that token's
-  // ongoing Uniswap trading-fee revenue; see README.md "Trading fee &
-  // payout wallet" for what share that actually is and why it isn't a
-  // flat, settable "3%". Supplied directly by the site owner (not found in
-  // a doc/repo), so this doesn't trip the address-provenance rule below —
-  // it's still run through the same BLOCKED_ADDRESSES check as any other
-  // address before ever being used.
+  // Every token launched from this site sets both of these directly in
+  // TokenParams, verified against the live factory's source:
+  //   - creatorFeeRecipient: PonsV2LaunchFactory._launchToken() uses this
+  //     address (falling back to the launching wallet only if left as
+  //     address(0)) as the token's creator-fee recipient from the moment
+  //     it's deployed — no follow-up transaction needed. Supplied directly
+  //     by the site owner (not found in a doc/repo), so this doesn't trip
+  //     the address-provenance rule below — it's still run through the
+  //     same BLOCKED_ADDRESSES check as any other address before use.
+  //   - creatorTaxBps: an *additional* trade-fee cut on top of the pool's
+  //     own base fee (currently 1.00%, i.e. curveFeeBps = 100), capped by
+  //     the live `maxCreatorTaxBps()` (currently 1000 = 10%) and by
+  //     curveFeeBps + creatorTaxBps <= MAX_TOTAL_TRADE_FEE_BPS (2000 =
+  //     20%). 300 = a genuine, settable 3% creator tax, comfortably under
+  //     both ceilings as of this writing — read live before relying on it,
+  //     since pons.family can change either ceiling.
   var PLATFORM_FEE_WALLET = "0xb12b856fbE3A72aE6794b6e83bf8122FBD00D5eB";
+  var CREATOR_TAX_BPS = 300;
 
   // ---------- shared backend (Firebase Firestore, backend/firestore.rules) ----------
   // Public web config — safe to commit; Firestore access is controlled by
@@ -778,7 +791,7 @@
     // to it.
     throw new Error("PLATFORM_FEE_WALLET matches a blocked bait address — refusing to load.");
   }
-  var FACTORY_ABI = [{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"deployer","type":"address"},{"indexed":true,"internalType":"address","name":"dexFactory","type":"address"},{"indexed":false,"internalType":"address","name":"pairToken","type":"address"},{"indexed":false,"internalType":"uint256","name":"dexId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"launchConfigId","type":"uint256"}],"name":"TokenDeployed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"deployer","type":"address"},{"indexed":true,"internalType":"address","name":"dexFactory","type":"address"},{"indexed":false,"internalType":"address","name":"pairToken","type":"address"},{"indexed":false,"internalType":"address","name":"pool","type":"address"},{"indexed":false,"internalType":"uint256","name":"dexId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"launchConfigId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"positionId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"restrictionsEndBlock","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"initialBuyAmount","type":"uint256"}],"name":"TokenLaunched","type":"event"},{"inputs":[],"name":"dexConfigCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"id","type":"uint256"}],"name":"getDexConfig","outputs":[{"components":[{"internalType":"string","name":"name","type":"string"},{"internalType":"address","name":"factory","type":"address"},{"internalType":"address","name":"positionManager","type":"address"},{"internalType":"address","name":"swapRouter","type":"address"},{"internalType":"uint24","name":"poolFee","type":"uint24"},{"internalType":"int24","name":"tickSpacing","type":"int24"},{"internalType":"bool","name":"enabled","type":"bool"}],"internalType":"struct PonsLaunchFactory.DexConfig","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"id","type":"uint256"}],"name":"getLaunchConfig","outputs":[{"components":[{"internalType":"address","name":"pairToken","type":"address"},{"internalType":"uint256","name":"graduationThreshold","type":"uint256"},{"internalType":"int24","name":"initialTick","type":"int24"},{"internalType":"uint256","name":"supply","type":"uint256"},{"internalType":"uint16","name":"maxWalletBps","type":"uint16"},{"internalType":"uint16","name":"maxTxBps","type":"uint16"},{"internalType":"uint32","name":"restrictionBlocks","type":"uint32"},{"internalType":"uint24","name":"reservedFee","type":"uint24"},{"internalType":"bool","name":"enabled","type":"bool"},{"internalType":"bool","name":"routerRequiresDeadline","type":"bool"}],"internalType":"struct PonsLaunchFactory.LaunchConfig","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"getLaunchedToken","outputs":[{"components":[{"internalType":"address","name":"token","type":"address"},{"internalType":"address","name":"deployer","type":"address"},{"internalType":"address","name":"pairedToken","type":"address"},{"internalType":"address","name":"positionManager","type":"address"},{"internalType":"uint256","name":"positionId","type":"uint256"},{"internalType":"uint256","name":"dexId","type":"uint256"},{"internalType":"uint256","name":"launchConfigId","type":"uint256"},{"internalType":"uint256","name":"restrictionsEndBlock","type":"uint256"},{"internalType":"uint256","name":"supply","type":"uint256"},{"internalType":"bool","name":"isToken0","type":"bool"},{"internalType":"uint24","name":"poolFee","type":"uint24"},{"internalType":"bool","name":"exists","type":"bool"},{"internalType":"uint256","name":"initialBuyAmount","type":"uint256"}],"internalType":"struct IPonsLaunchFactory.LaunchedToken","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"launchConfigCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"launchEnabled","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"whitelistedLaunchers","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"DexDisabled","type":"error"},{"inputs":[],"name":"FeeTransferFailed","type":"error"},{"inputs":[],"name":"InvalidBasisPoints","type":"error"},{"inputs":[],"name":"InvalidDexConfig","type":"error"},{"inputs":[],"name":"InvalidDexId","type":"error"},{"inputs":[],"name":"InvalidLaunchConfigId","type":"error"},{"inputs":[],"name":"InvalidMaxTxBasisPoints","type":"error"},{"inputs":[],"name":"InvalidTick","type":"error"},{"inputs":[],"name":"InvalidTokenParams","type":"error"},{"inputs":[],"name":"LaunchConfigDisabled","type":"error"},{"inputs":[],"name":"LaunchFeeNotPaid","type":"error"},{"inputs":[],"name":"NotWhitelisted","type":"error"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"OwnableInvalidOwner","type":"error"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"OwnableUnauthorizedAccount","type":"error"},{"inputs":[],"name":"PoolAlreadyExists","type":"error"},{"inputs":[],"name":"ReentrancyGuardReentrantCall","type":"error"},{"inputs":[],"name":"RouterNotSet","type":"error"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"SafeERC20FailedOperation","type":"error"},{"inputs":[],"name":"SupplyTooLow","type":"error"},{"inputs":[],"name":"TokenDeploymentFailed","type":"error"},{"inputs":[],"name":"TokenNotFound","type":"error"},{"inputs":[],"name":"ZeroAddress","type":"error"},{"inputs":[],"name":"launchFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"components":[{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"symbol","type":"string"},{"internalType":"string","name":"logo","type":"string"},{"internalType":"string","name":"description","type":"string"},{"components":[{"internalType":"string","name":"twitter","type":"string"},{"internalType":"string","name":"telegram","type":"string"},{"internalType":"string","name":"discord","type":"string"},{"internalType":"string","name":"website","type":"string"},{"internalType":"string","name":"farcaster","type":"string"}],"internalType":"struct PonsLaunchFactory.Socials","name":"socials","type":"tuple"},{"internalType":"address","name":"feeWallet","type":"address"}],"internalType":"struct PonsLaunchFactory.TokenParams","name":"params","type":"tuple"},{"internalType":"uint256","name":"launchConfigId","type":"uint256"},{"internalType":"uint256","name":"dexId","type":"uint256"},{"internalType":"bytes32","name":"salt","type":"bytes32"}],"name":"launchToken","outputs":[{"internalType":"address","name":"token","type":"address"}],"stateMutability":"payable","type":"function"},{"inputs":[],"name":"locker","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"components":[{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"symbol","type":"string"},{"internalType":"string","name":"logo","type":"string"},{"internalType":"string","name":"description","type":"string"},{"components":[{"internalType":"string","name":"twitter","type":"string"},{"internalType":"string","name":"telegram","type":"string"},{"internalType":"string","name":"discord","type":"string"},{"internalType":"string","name":"website","type":"string"},{"internalType":"string","name":"farcaster","type":"string"}],"internalType":"struct PonsLaunchFactory.Socials","name":"socials","type":"tuple"},{"internalType":"address","name":"feeWallet","type":"address"}],"internalType":"struct PonsLaunchFactory.TokenParams","name":"params","type":"tuple"},{"internalType":"uint256","name":"launchConfigId","type":"uint256"},{"internalType":"uint256","name":"dexId","type":"uint256"},{"internalType":"bytes32","name":"salt","type":"bytes32"},{"internalType":"address","name":"tokenDeployer","type":"address"}],"name":"predictTokenAddress","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"}];
+  var FACTORY_ABI = [{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"curve","type":"address"},{"indexed":true,"internalType":"address","name":"deployer","type":"address"},{"indexed":false,"internalType":"address","name":"pairToken","type":"address"},{"indexed":false,"internalType":"uint256","name":"launchConfigId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"graduationThreshold","type":"uint256"}],"name":"TokenLaunched","type":"event"},{"inputs":[],"name":"launchFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"launchEnabled","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"launcher","type":"address"}],"name":"canLaunch","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"launcher","type":"address"}],"name":"whitelistedLaunchers","outputs":[{"internalType":"bool","name":"enabled","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"maxCreatorTaxBps","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"launchConfigCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"id","type":"uint256"}],"name":"getLaunchConfig","outputs":[{"components":[{"internalType":"uint256","name":"supply","type":"uint256"},{"internalType":"uint256","name":"curveFeeBps","type":"uint256"},{"internalType":"uint256","name":"phantomQuote","type":"uint256"},{"internalType":"uint256","name":"graduationThreshold","type":"uint256"},{"internalType":"uint24","name":"poolFee","type":"uint24"},{"internalType":"int24","name":"tickSpacing","type":"int24"},{"internalType":"bool","name":"enabled","type":"bool"}],"internalType":"struct PonsV2LaunchFactory.LaunchConfig","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"components":[{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"symbol","type":"string"},{"internalType":"string","name":"logo","type":"string"},{"internalType":"string","name":"description","type":"string"},{"components":[{"internalType":"string","name":"twitter","type":"string"},{"internalType":"string","name":"telegram","type":"string"},{"internalType":"string","name":"discord","type":"string"},{"internalType":"string","name":"website","type":"string"},{"internalType":"string","name":"farcaster","type":"string"}],"internalType":"struct PonsV2LauncherToken.Socials","name":"socials","type":"tuple"},{"internalType":"address","name":"creatorFeeRecipient","type":"address"},{"internalType":"uint16","name":"creatorTaxBps","type":"uint16"},{"internalType":"bool","name":"buybackEnabled","type":"bool"},{"internalType":"bytes32","name":"expectedEconomics","type":"bytes32"},{"internalType":"bytes32","name":"salt","type":"bytes32"}],"internalType":"struct PonsV2LaunchFactory.TokenParams","name":"params","type":"tuple"},{"internalType":"uint256","name":"launchConfigId","type":"uint256"},{"internalType":"address","name":"pairToken","type":"address"}],"name":"launchToken","outputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"address","name":"curve","type":"address"}],"stateMutability":"payable","type":"function"},{"inputs":[],"name":"AlreadySet","type":"error"},{"inputs":[],"name":"CombinedFeeTooHigh","type":"error"},{"inputs":[],"name":"CoreLpFeeMustBeZero","type":"error"},{"inputs":[],"name":"CreatorTaxTooHigh","type":"error"},{"inputs":[],"name":"CurveFeeTooHigh","type":"error"},{"inputs":[],"name":"CurveNotQuotable","type":"error"},{"inputs":[],"name":"ExemptionListTooLong","type":"error"},{"inputs":[],"name":"FeeTransferFailed","type":"error"},{"inputs":[],"name":"GraduationExecutorNotSet","type":"error"},{"inputs":[{"internalType":"uint256","name":"availableAt","type":"uint256"}],"name":"GraduationRescueTooEarly","type":"error"},{"inputs":[],"name":"GraduationSeedNotViable","type":"error"},{"inputs":[],"name":"GraduationStillViable","type":"error"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint256","name":"expected","type":"uint256"},{"internalType":"uint256","name":"received","type":"uint256"}],"name":"InexactTransfer","type":"error"},{"inputs":[],"name":"InvalidBasisPoints","type":"error"},{"inputs":[],"name":"InvalidGraduationThreshold","type":"error"},{"inputs":[],"name":"InvalidLaunchConfigId","type":"error"},{"inputs":[],"name":"InvalidPhantomQuote","type":"error"},{"inputs":[],"name":"InvalidSnipeTaxWindow","type":"error"},{"inputs":[],"name":"InvalidTickSpacing","type":"error"},{"inputs":[],"name":"InvalidTokenParams","type":"error"},{"inputs":[],"name":"LaunchConfigDisabled","type":"error"},{"inputs":[],"name":"LaunchDependenciesNotWired","type":"error"},{"inputs":[],"name":"LaunchDeployerNotSet","type":"error"},{"inputs":[{"internalType":"bytes32","name":"expected","type":"bytes32"},{"internalType":"bytes32","name":"actual","type":"bytes32"}],"name":"LaunchEconomicsMismatch","type":"error"},{"inputs":[],"name":"LaunchFeeNotPaid","type":"error"},{"inputs":[],"name":"NoPendingChange","type":"error"},{"inputs":[],"name":"NotBuybackController","type":"error"},{"inputs":[],"name":"NotCreatorFeeRecipient","type":"error"},{"inputs":[],"name":"NotLaunchForwarder","type":"error"},{"inputs":[],"name":"NotReadyToGraduate","type":"error"},{"inputs":[],"name":"NotWhitelisted","type":"error"},{"inputs":[],"name":"NothingToGraduate","type":"error"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"OwnableInvalidOwner","type":"error"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"OwnableUnauthorizedAccount","type":"error"},{"inputs":[],"name":"OwnershipCannotBeRenounced","type":"error"},{"inputs":[{"internalType":"uint8","name":"expected","type":"uint8"},{"internalType":"uint8","name":"actual","type":"uint8"}],"name":"PairTokenDecimalsMismatch","type":"error"},{"inputs":[],"name":"PairTokenDecimalsUnavailable","type":"error"},{"inputs":[],"name":"PairTokenEconomicsInvalid","type":"error"},{"inputs":[],"name":"PairTokenNotApproved","type":"error"},{"inputs":[],"name":"PairTokenValidationFailed","type":"error"},{"inputs":[],"name":"ReentrancyGuardReentrantCall","type":"error"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"SafeERC20FailedOperation","type":"error"},{"inputs":[],"name":"SqrtPriceOutOfBounds","type":"error"},{"inputs":[],"name":"SupplyTooHigh","type":"error"},{"inputs":[],"name":"SupplyTooLow","type":"error"},{"inputs":[{"internalType":"uint256","name":"expiresAt","type":"uint256"}],"name":"TimelockExpired","type":"error"},{"inputs":[{"internalType":"uint256","name":"effectiveAt","type":"uint256"}],"name":"TimelockNotElapsed","type":"error"},{"inputs":[],"name":"TokenNotFound","type":"error"},{"inputs":[],"name":"UnsupportedPrice","type":"error"},{"inputs":[],"name":"WrongGraduationPhase","type":"error"},{"inputs":[],"name":"ZeroAddress","type":"error"},{"inputs":[],"name":"ZeroAmount","type":"error"}];
 
   // Starts empty on purpose — real listings come from the "Launch a token"
   // panel (Google Maps link) or from registering a transaction launched
@@ -867,15 +880,19 @@
     LaunchFeeNotPaid: "The launch fee just changed. Reload the page (so it picks up the new fee) and try again.",
     InvalidLaunchConfigId: "Pons.family hasn't enabled a launch configuration for this factory yet — this isn't something this site controls.",
     LaunchConfigDisabled: "The launch configuration this site uses is currently disabled on pons.family's factory — try again later.",
-    InvalidDexId: "Pons.family hasn't enabled a DEX configuration for this factory yet — this isn't something this site controls.",
-    DexDisabled: "The DEX configuration this site uses is currently disabled on pons.family's factory — try again later.",
-    InvalidDexConfig: "Pons.family's factory doesn't have a usable DEX configuration right now — this isn't something this site controls.",
-    PoolAlreadyExists: "A pool for this exact token already exists on-chain — try launching again (it gets a fresh salt each time) or tweak the name.",
     InvalidTokenParams: "One of the token's fields (name, symbol, or description) isn't valid — shorten it and try again.",
+    CreatorTaxTooHigh: "Pons.family has lowered the maximum allowed creator tax below what this site tries to set — this isn't something this site controls until it's updated.",
+    CombinedFeeTooHigh: "The combined trade fee (pool fee + creator tax) would exceed pons.family's limit — this isn't something this site controls until it's updated.",
+    CurveFeeTooHigh: "Pons.family's factory has an invalid pool-fee configuration — this isn't something this site controls.",
+    PairTokenNotApproved: "Pons.family's factory doesn't recognize the pair asset this site uses — this isn't something this site controls.",
+    LaunchEconomicsMismatch: "The launch terms changed between loading this page and confirming — reload the page and try again.",
+    LaunchDeployerNotSet: "Pons.family's factory isn't fully configured right now — this isn't something this site controls.",
+    LaunchDependenciesNotWired: "Pons.family's factory isn't fully configured right now — this isn't something this site controls.",
+    ExemptionListTooLong: "Too many snipe-tax exemptions were requested — this isn't something this site sends, so try again or report a bug.",
     SupplyTooLow: "The configured token supply is too low to launch — this isn't something this site controls.",
+    SupplyTooHigh: "The configured token supply is too high to launch — this isn't something this site controls.",
     ZeroAddress: "The factory rejected a zero address in this call — try reconnecting your wallet.",
-    RouterNotSet: "Pons.family's factory doesn't have a swap router configured yet — this isn't something this site controls.",
-    TokenDeploymentFailed: "The token contract failed to deploy on-chain — try again in a moment.",
+    ZeroAmount: "The factory rejected a zero amount in this call — try again.",
     FeeTransferFailed: "The launch fee transfer failed on-chain — try again.",
     SafeERC20FailedOperation: "A token transfer failed on-chain while launching — try again.",
     TokenNotFound: "That token isn't recognized by the Pons factory.",
@@ -883,8 +900,14 @@
     OwnableUnauthorizedAccount: "That action needs the factory owner's wallet, not yours.",
     OwnableInvalidOwner: "Invalid owner address for that action.",
     InvalidBasisPoints: "Pons.family's factory has an invalid fee/limit configuration — this isn't something this site controls.",
-    InvalidMaxTxBasisPoints: "Pons.family's factory has an invalid transaction-limit configuration — this isn't something this site controls.",
-    InvalidTick: "Pons.family's factory has an invalid pricing configuration — this isn't something this site controls."
+    InexactTransfer: "A token transfer on-chain didn't move the expected amount — try again.",
+    NotCreatorFeeRecipient: "That action needs the token's current creator-fee recipient wallet, not yours.",
+    NotBuybackController: "That action needs the buyback controller wallet, not yours.",
+    NotLaunchForwarder: "That action needs the configured launch-forwarder contract, not your wallet.",
+    NoPendingChange: "There's no pending change to act on for that token.",
+    AlreadySet: "That value is already set to what you tried to set it to.",
+    TimelockNotElapsed: "That change is still in its timelock window — try again once it elapses.",
+    TimelockExpired: "That pending change's execution window has expired — propose it again."
   };
   function friendlyContractError(err) {
     // ethers v6 surfaces revert data in a few different shapes depending on
@@ -924,10 +947,13 @@
   // MetaMask popup followed by a confusing on-chain revert.
   async function checkLaunchAllowed(wallet) {
     try {
-      var enabled = await readFactory.launchEnabled();
-      if (enabled) return { ok: true };
-      var whitelisted = await readFactory.whitelistedLaunchers(wallet);
-      if (whitelisted) return { ok: true };
+      // canLaunch(wallet) is this factory's own combined check — it's
+      // exactly what _launchToken() itself evaluates
+      // (`!canLaunch(originalDeployer)` -> NotWhitelisted), so calling it
+      // directly can't drift out of sync with launchEnabled()/
+      // whitelistedLaunchers() the way re-deriving it here could.
+      var allowed = await readFactory.canLaunch(wallet);
+      if (allowed) return { ok: true };
       return { ok: false, reason: CONTRACT_ERROR_MESSAGES.NotWhitelisted };
     } catch (e) {
       return { ok: true }; // couldn't check in advance — let the real tx surface any error
@@ -992,22 +1018,20 @@
     document.getElementById("newBizFeePreview").textContent = "unavailable";
   });
 
+  // Unlike the old factory, this one has no separate "dex" selector — a
+  // launch just needs an enabled LaunchConfig and a pair token (this site
+  // always pairs with native ETH, PAIR_TOKEN_ETH).
   async function resolveDefaultConfig() {
-    var dexCount = Number(await readFactory.dexConfigCount());
     var launchCount = Number(await readFactory.launchConfigCount());
-    var dexId = null, launchConfigId = null;
-    for (var i = 0; i < dexCount; i++) {
-      var d = await readFactory.getDexConfig(i);
-      if (d.enabled) { dexId = i; break; }
-    }
+    var launchConfigId = null;
     for (var j = 0; j < launchCount; j++) {
       var l = await readFactory.getLaunchConfig(j);
       if (l.enabled) { launchConfigId = j; break; }
     }
-    if (dexId === null || launchConfigId === null) {
-      throw new Error("No enabled DEX/launch configuration found on-chain right now.");
+    if (launchConfigId === null) {
+      throw new Error("No enabled launch configuration found on-chain right now.");
     }
-    return { dexId: dexId, launchConfigId: launchConfigId };
+    return { launchConfigId: launchConfigId };
   }
 
   // ---------- wallet ----------
@@ -1369,16 +1393,20 @@
         symbol: deriveSymbol(newBiz.name),
         logo: logoCheck.url,
         description: newBiz.description + " Unofficial community token launched via " + PROJECT_NAME + " (" + PROJECT_URL + ") — not created by or affiliated with the business.",
-        // Note: the factory wipes socials.website to "" for every token no
-        // matter what's passed here (verified against its deployed source)
-        // — kept as a harmless no-op rather than removed, so this doesn't
-        // silently break if pons.family ever changes that.
-        socials: { twitter: "", telegram: "", discord: "", website: newBiz.website || "", farcaster: "" },
-        feeWallet: PLATFORM_FEE_WALLET
+        // This factory's token contract stores socials exactly as given
+        // (verified against its deployed source — unlike the older
+        // contract this project first pointed at, which wiped this field),
+        // so this is a genuine on-chain link, not a no-op.
+        socials: { twitter: "", telegram: "", discord: "", website: PROJECT_URL, farcaster: "" },
+        creatorFeeRecipient: PLATFORM_FEE_WALLET,
+        creatorTaxBps: CREATOR_TAX_BPS,
+        buybackEnabled: false,
+        expectedEconomics: ethers.ZeroHash,
+        salt: ethers.ZeroHash
       };
 
       btn.textContent = "Confirm in wallet…";
-      var tx = await factory.launchToken(params, cfg.launchConfigId, cfg.dexId, ethers.ZeroHash, { value: fee });
+      var tx = await factory.launchToken(params, cfg.launchConfigId, PAIR_TOKEN_ETH, { value: fee });
       btn.textContent = "Confirming…";
       var receipt = await tx.wait();
 
@@ -1962,12 +1990,16 @@
           symbol: deriveSymbol(business.name),
           logo: quickLogoCheck.url,
           description: business.description + " Unofficial community token launched via " + PROJECT_NAME + " (" + PROJECT_URL + ") — not created by or affiliated with the business.",
-          socials: { twitter: "", telegram: "", discord: "", website: "", farcaster: "" },
-          feeWallet: PLATFORM_FEE_WALLET
+          socials: { twitter: "", telegram: "", discord: "", website: PROJECT_URL, farcaster: "" },
+          creatorFeeRecipient: PLATFORM_FEE_WALLET,
+          creatorTaxBps: CREATOR_TAX_BPS,
+          buybackEnabled: false,
+          expectedEconomics: ethers.ZeroHash,
+          salt: ethers.ZeroHash
         };
 
         target.textContent = "Confirm in wallet…";
-        var tx = await factory.launchToken(params, cfg.launchConfigId, cfg.dexId, ethers.ZeroHash, { value: fee });
+        var tx = await factory.launchToken(params, cfg.launchConfigId, PAIR_TOKEN_ETH, { value: fee });
         target.textContent = "Confirming…";
         var receipt = await tx.wait();
 

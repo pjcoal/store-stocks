@@ -34,7 +34,7 @@ async function main() {
   const file = arg('file', 'data/businesses.json');
   const id = arg('id');
   const launchConfigId = Number(arg('launchConfigId', '0'));
-  const dexId = Number(arg('dexId', '0'));
+  const pairToken = arg('pairToken'); // omit for native ETH (PAIR_TOKEN_ETH)
 
   if (!id) {
     console.error('Usage: node scripts/launch_token.js --file data/businesses.json --id <business-id>');
@@ -66,11 +66,18 @@ async function main() {
   const provider = new ethers.JsonRpcProvider(ROBINHOOD_CHAIN.rpcUrl, ROBINHOOD_CHAIN.chainId);
   const wallet = new ethers.Wallet(pk, provider);
 
+  // Backward-compat: businesses.json entries may still use the old
+  // `feeWallet` field name from before the v2 factory correction (see
+  // README.md) — accept either.
+  if (business.feeWallet && !business.creatorFeeRecipient) {
+    business.creatorFeeRecipient = business.feeWallet;
+  }
+
   const { populated, launchFee, tokenParams } = await buildLaunchTx({
     provider: wallet,
     business,
     launchConfigId,
-    dexId,
+    pairToken,
   });
 
   console.log('\n--- Launch summary ---');
@@ -79,7 +86,8 @@ async function main() {
   console.log('Signer wallet:', await wallet.getAddress());
   console.log('Name / Symbol:', tokenParams.name, '/', tokenParams.symbol);
   console.log('Description:', tokenParams.description);
-  console.log('Fee wallet (creator payout):', tokenParams.feeWallet);
+  console.log('Creator fee recipient:', tokenParams.creatorFeeRecipient);
+  console.log('Creator tax (bps):', tokenParams.creatorTaxBps);
   console.log('Launch fee:', ethers.formatEther(launchFee), 'ETH');
   console.log('-----------------------\n');
 

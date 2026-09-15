@@ -11,13 +11,13 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "deployer",
+        "name": "curve",
         "type": "address"
       },
       {
         "indexed": true,
         "internalType": "address",
-        "name": "dexFactory",
+        "name": "deployer",
         "type": "address"
       },
       {
@@ -29,80 +29,13 @@
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "dexId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "launchConfigId",
-        "type": "uint256"
-      }
-    ],
-    "name": "TokenDeployed",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "token",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "deployer",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "dexFactory",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "pairToken",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "pool",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "dexId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
         "name": "launchConfigId",
         "type": "uint256"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "positionId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "restrictionsEndBlock",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "initialBuyAmount",
+        "name": "graduationThreshold",
         "type": "uint256"
       }
     ],
@@ -111,233 +44,7 @@
   },
   {
     "inputs": [],
-    "name": "dexConfigCount",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "id",
-        "type": "uint256"
-      }
-    ],
-    "name": "getDexConfig",
-    "outputs": [
-      {
-        "components": [
-          {
-            "internalType": "string",
-            "name": "name",
-            "type": "string"
-          },
-          {
-            "internalType": "address",
-            "name": "factory",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "positionManager",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "swapRouter",
-            "type": "address"
-          },
-          {
-            "internalType": "uint24",
-            "name": "poolFee",
-            "type": "uint24"
-          },
-          {
-            "internalType": "int24",
-            "name": "tickSpacing",
-            "type": "int24"
-          },
-          {
-            "internalType": "bool",
-            "name": "enabled",
-            "type": "bool"
-          }
-        ],
-        "internalType": "struct PonsLaunchFactory.DexConfig",
-        "name": "",
-        "type": "tuple"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "id",
-        "type": "uint256"
-      }
-    ],
-    "name": "getLaunchConfig",
-    "outputs": [
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "pairToken",
-            "type": "address"
-          },
-          {
-            "internalType": "uint256",
-            "name": "graduationThreshold",
-            "type": "uint256"
-          },
-          {
-            "internalType": "int24",
-            "name": "initialTick",
-            "type": "int24"
-          },
-          {
-            "internalType": "uint256",
-            "name": "supply",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint16",
-            "name": "maxWalletBps",
-            "type": "uint16"
-          },
-          {
-            "internalType": "uint16",
-            "name": "maxTxBps",
-            "type": "uint16"
-          },
-          {
-            "internalType": "uint32",
-            "name": "restrictionBlocks",
-            "type": "uint32"
-          },
-          {
-            "internalType": "uint24",
-            "name": "reservedFee",
-            "type": "uint24"
-          },
-          {
-            "internalType": "bool",
-            "name": "enabled",
-            "type": "bool"
-          },
-          {
-            "internalType": "bool",
-            "name": "routerRequiresDeadline",
-            "type": "bool"
-          }
-        ],
-        "internalType": "struct PonsLaunchFactory.LaunchConfig",
-        "name": "",
-        "type": "tuple"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "token",
-        "type": "address"
-      }
-    ],
-    "name": "getLaunchedToken",
-    "outputs": [
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "token",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "deployer",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "pairedToken",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "positionManager",
-            "type": "address"
-          },
-          {
-            "internalType": "uint256",
-            "name": "positionId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "dexId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "launchConfigId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "restrictionsEndBlock",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "supply",
-            "type": "uint256"
-          },
-          {
-            "internalType": "bool",
-            "name": "isToken0",
-            "type": "bool"
-          },
-          {
-            "internalType": "uint24",
-            "name": "poolFee",
-            "type": "uint24"
-          },
-          {
-            "internalType": "bool",
-            "name": "exists",
-            "type": "bool"
-          },
-          {
-            "internalType": "uint256",
-            "name": "initialBuyAmount",
-            "type": "uint256"
-          }
-        ],
-        "internalType": "struct IPonsLaunchFactory.LaunchedToken",
-        "name": "",
-        "type": "tuple"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "launchConfigCount",
+    "name": "launchFee",
     "outputs": [
       {
         "internalType": "uint256",
@@ -365,11 +72,11 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "",
+        "name": "launcher",
         "type": "address"
       }
     ],
-    "name": "whitelistedLaunchers",
+    "name": "canLaunch",
     "outputs": [
       {
         "internalType": "bool",
@@ -380,36 +87,102 @@
     "stateMutability": "view",
     "type": "function"
   },
-  { "inputs": [], "name": "DexDisabled", "type": "error" },
-  { "inputs": [], "name": "FeeTransferFailed", "type": "error" },
-  { "inputs": [], "name": "InvalidBasisPoints", "type": "error" },
-  { "inputs": [], "name": "InvalidDexConfig", "type": "error" },
-  { "inputs": [], "name": "InvalidDexId", "type": "error" },
-  { "inputs": [], "name": "InvalidLaunchConfigId", "type": "error" },
-  { "inputs": [], "name": "InvalidMaxTxBasisPoints", "type": "error" },
-  { "inputs": [], "name": "InvalidTick", "type": "error" },
-  { "inputs": [], "name": "InvalidTokenParams", "type": "error" },
-  { "inputs": [], "name": "LaunchConfigDisabled", "type": "error" },
-  { "inputs": [], "name": "LaunchFeeNotPaid", "type": "error" },
-  { "inputs": [], "name": "NotWhitelisted", "type": "error" },
-  { "inputs": [{ "internalType": "address", "name": "owner", "type": "address" }], "name": "OwnableInvalidOwner", "type": "error" },
-  { "inputs": [{ "internalType": "address", "name": "account", "type": "address" }], "name": "OwnableUnauthorizedAccount", "type": "error" },
-  { "inputs": [], "name": "PoolAlreadyExists", "type": "error" },
-  { "inputs": [], "name": "ReentrancyGuardReentrantCall", "type": "error" },
-  { "inputs": [], "name": "RouterNotSet", "type": "error" },
-  { "inputs": [{ "internalType": "address", "name": "token", "type": "address" }], "name": "SafeERC20FailedOperation", "type": "error" },
-  { "inputs": [], "name": "SupplyTooLow", "type": "error" },
-  { "inputs": [], "name": "TokenDeploymentFailed", "type": "error" },
-  { "inputs": [], "name": "TokenNotFound", "type": "error" },
-  { "inputs": [], "name": "ZeroAddress", "type": "error" },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "launcher",
+        "type": "address"
+      }
+    ],
+    "name": "whitelistedLaunchers",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "enabled",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
   {
     "inputs": [],
-    "name": "launchFee",
+    "name": "maxCreatorTaxBps",
     "outputs": [
       {
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "launchConfigCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      }
+    ],
+    "name": "getLaunchConfig",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "supply",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "curveFeeBps",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "phantomQuote",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "graduationThreshold",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint24",
+            "name": "poolFee",
+            "type": "uint24"
+          },
+          {
+            "internalType": "int24",
+            "name": "tickSpacing",
+            "type": "int24"
+          },
+          {
+            "internalType": "bool",
+            "name": "enabled",
+            "type": "bool"
+          }
+        ],
+        "internalType": "struct PonsV2LaunchFactory.LaunchConfig",
+        "name": "",
+        "type": "tuple"
       }
     ],
     "stateMutability": "view",
@@ -467,17 +240,37 @@
                 "type": "string"
               }
             ],
-            "internalType": "struct PonsLaunchFactory.Socials",
+            "internalType": "struct PonsV2LauncherToken.Socials",
             "name": "socials",
             "type": "tuple"
           },
           {
             "internalType": "address",
-            "name": "feeWallet",
+            "name": "creatorFeeRecipient",
             "type": "address"
+          },
+          {
+            "internalType": "uint16",
+            "name": "creatorTaxBps",
+            "type": "uint16"
+          },
+          {
+            "internalType": "bool",
+            "name": "buybackEnabled",
+            "type": "bool"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "expectedEconomics",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "salt",
+            "type": "bytes32"
           }
         ],
-        "internalType": "struct PonsLaunchFactory.TokenParams",
+        "internalType": "struct PonsV2LaunchFactory.TokenParams",
         "name": "params",
         "type": "tuple"
       },
@@ -487,14 +280,9 @@
         "type": "uint256"
       },
       {
-        "internalType": "uint256",
-        "name": "dexId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "salt",
-        "type": "bytes32"
+        "internalType": "address",
+        "name": "pairToken",
+        "type": "address"
       }
     ],
     "name": "launchToken",
@@ -503,6 +291,11 @@
         "internalType": "address",
         "name": "token",
         "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "curve",
+        "type": "address"
       }
     ],
     "stateMutability": "payable",
@@ -510,113 +303,336 @@
   },
   {
     "inputs": [],
-    "name": "locker",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
+    "name": "AlreadySet",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "CombinedFeeTooHigh",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "CoreLpFeeMustBeZero",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "CreatorTaxTooHigh",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "CurveFeeTooHigh",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "CurveNotQuotable",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ExemptionListTooLong",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "FeeTransferFailed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "GraduationExecutorNotSet",
+    "type": "error"
   },
   {
     "inputs": [
       {
-        "components": [
-          {
-            "internalType": "string",
-            "name": "name",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "symbol",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "logo",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "description",
-            "type": "string"
-          },
-          {
-            "components": [
-              {
-                "internalType": "string",
-                "name": "twitter",
-                "type": "string"
-              },
-              {
-                "internalType": "string",
-                "name": "telegram",
-                "type": "string"
-              },
-              {
-                "internalType": "string",
-                "name": "discord",
-                "type": "string"
-              },
-              {
-                "internalType": "string",
-                "name": "website",
-                "type": "string"
-              },
-              {
-                "internalType": "string",
-                "name": "farcaster",
-                "type": "string"
-              }
-            ],
-            "internalType": "struct PonsLaunchFactory.Socials",
-            "name": "socials",
-            "type": "tuple"
-          },
-          {
-            "internalType": "address",
-            "name": "feeWallet",
-            "type": "address"
-          }
-        ],
-        "internalType": "struct PonsLaunchFactory.TokenParams",
-        "name": "params",
-        "type": "tuple"
+        "internalType": "uint256",
+        "name": "availableAt",
+        "type": "uint256"
+      }
+    ],
+    "name": "GraduationRescueTooEarly",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "GraduationSeedNotViable",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "GraduationStillViable",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
       },
       {
         "internalType": "uint256",
-        "name": "launchConfigId",
+        "name": "expected",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "dexId",
+        "name": "received",
         "type": "uint256"
-      },
+      }
+    ],
+    "name": "InexactTransfer",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidBasisPoints",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidGraduationThreshold",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidLaunchConfigId",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidPhantomQuote",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidSnipeTaxWindow",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidTickSpacing",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidTokenParams",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "LaunchConfigDisabled",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "LaunchDependenciesNotWired",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "LaunchDeployerNotSet",
+    "type": "error"
+  },
+  {
+    "inputs": [
       {
         "internalType": "bytes32",
-        "name": "salt",
+        "name": "expected",
         "type": "bytes32"
       },
       {
-        "internalType": "address",
-        "name": "tokenDeployer",
-        "type": "address"
+        "internalType": "bytes32",
+        "name": "actual",
+        "type": "bytes32"
       }
     ],
-    "name": "predictTokenAddress",
-    "outputs": [
+    "name": "LaunchEconomicsMismatch",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "LaunchFeeNotPaid",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NoPendingChange",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotBuybackController",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotCreatorFeeRecipient",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotLaunchForwarder",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotReadyToGraduate",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotWhitelisted",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NothingToGraduate",
+    "type": "error"
+  },
+  {
+    "inputs": [
       {
         "internalType": "address",
-        "name": "",
+        "name": "owner",
         "type": "address"
       }
     ],
-    "stateMutability": "view",
-    "type": "function"
+    "name": "OwnableInvalidOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "OwnableUnauthorizedAccount",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OwnershipCannotBeRenounced",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint8",
+        "name": "expected",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "actual",
+        "type": "uint8"
+      }
+    ],
+    "name": "PairTokenDecimalsMismatch",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "PairTokenDecimalsUnavailable",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "PairTokenEconomicsInvalid",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "PairTokenNotApproved",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "PairTokenValidationFailed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ReentrancyGuardReentrantCall",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      }
+    ],
+    "name": "SafeERC20FailedOperation",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SqrtPriceOutOfBounds",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SupplyTooHigh",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SupplyTooLow",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "expiresAt",
+        "type": "uint256"
+      }
+    ],
+    "name": "TimelockExpired",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "effectiveAt",
+        "type": "uint256"
+      }
+    ],
+    "name": "TimelockNotElapsed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TokenNotFound",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "UnsupportedPrice",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "WrongGraduationPhase",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ZeroAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ZeroAmount",
+    "type": "error"
   }
 ]
