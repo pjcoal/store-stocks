@@ -608,6 +608,10 @@
           <span>Website (optional, used only for the claim domain-match check)</span>
           <input class="search-input" id="newBizWebsite" placeholder="business-website.com">
         </label>
+        <label class="launch-field">
+          <span>Token image (optional, direct https:// link)</span>
+          <input class="search-input" id="newBizLogoUrl" placeholder="https://example.com/logo.png">
+        </label>
         <label class="launch-field launch-field-wide">
           <span>Description</span>
           <textarea id="newBizDescription" placeholder="What this token is for"></textarea>
@@ -616,6 +620,7 @@
           <span class="eyebrow" style="color:var(--ink-dim);">Token symbol: <span class="mono" id="newBizSymbolPreview">—</span> · launch fee: <span id="newBizFeePreview">…</span> ETH</span>
           <button class="btn btn-accent btn-small" id="launchNewBtn" type="button">Connect wallet &amp; launch</button>
         </div>
+        <p class="launch-field launch-field-wide" style="color:var(--ink-dim); font-size:0.85em; margin:0;">Every token launched here links back to storestocks.xyz in its on-chain description, and its ongoing trading-fee payout goes to Store Stocks rather than to your wallet.</p>
       </div>
     </div>
   </section>
@@ -719,6 +724,29 @@
   // directly on pons.family (not just visitors to this site) can tell it's
   // part of this project, even if this page's own URL isn't public.
   var PROJECT_NAME = "Store Stocks";
+  // PonsLauncherToken's constructor unconditionally wipes the `website`
+  // social field to "" for every token it deploys (verified against the
+  // live factory implementation's source on Blockscout) — there is no
+  // on-chain field this site can set for a real website link. The only
+  // place a link can survive is the free-text `description`, so every
+  // launch appends this URL there instead.
+  var PROJECT_URL = "https://www.storestocks.xyz/";
+  // Every token launched from this site sends its on-chain "creator fee"
+  // share here instead of to the wallet that signs the launch. Mechanics
+  // (verified against the live factory + locker source on Blockscout):
+  // PonsLaunchFactory.launchToken() takes TokenParams.feeWallet and, right
+  // after locking the LP position, calls the locker's setFeeRedirect(token,
+  // feeWallet) itself — the factory is one of the locker's permitted
+  // callers for that, so this happens atomically in the same transaction,
+  // no separate signature needed from whoever launches. From then on this
+  // wallet (not the launcher) receives the "creator" share of that token's
+  // ongoing Uniswap trading-fee revenue; see README.md "Trading fee &
+  // payout wallet" for what share that actually is and why it isn't a
+  // flat, settable "3%". Supplied directly by the site owner (not found in
+  // a doc/repo), so this doesn't trip the address-provenance rule below —
+  // it's still run through the same BLOCKED_ADDRESSES check as any other
+  // address before ever being used.
+  var PLATFORM_FEE_WALLET = "0xb12b856fbE3A72aE6794b6e83bf8122FBD00D5eB";
 
   // ---------- shared backend (Firebase Firestore, backend/firestore.rules) ----------
   // Public web config — safe to commit; Firestore access is controlled by
@@ -744,6 +772,12 @@
     "0x6c304c85f8244b8f256981447c33154406559d15",
     "0x5c2a1e7866c6cd56b388ebbaee019ae0793b8e0c"
   ];
+  if (BLOCKED_ADDRESSES.indexOf(PLATFORM_FEE_WALLET.toLowerCase()) !== -1) {
+    // Belt-and-suspenders: if PLATFORM_FEE_WALLET is ever edited to match a
+    // known bait address, refuse to run at all rather than route real fees
+    // to it.
+    throw new Error("PLATFORM_FEE_WALLET matches a blocked bait address — refusing to load.");
+  }
   var FACTORY_ABI = [{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"deployer","type":"address"},{"indexed":true,"internalType":"address","name":"dexFactory","type":"address"},{"indexed":false,"internalType":"address","name":"pairToken","type":"address"},{"indexed":false,"internalType":"uint256","name":"dexId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"launchConfigId","type":"uint256"}],"name":"TokenDeployed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"deployer","type":"address"},{"indexed":true,"internalType":"address","name":"dexFactory","type":"address"},{"indexed":false,"internalType":"address","name":"pairToken","type":"address"},{"indexed":false,"internalType":"address","name":"pool","type":"address"},{"indexed":false,"internalType":"uint256","name":"dexId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"launchConfigId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"positionId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"restrictionsEndBlock","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"initialBuyAmount","type":"uint256"}],"name":"TokenLaunched","type":"event"},{"inputs":[],"name":"dexConfigCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"id","type":"uint256"}],"name":"getDexConfig","outputs":[{"components":[{"internalType":"string","name":"name","type":"string"},{"internalType":"address","name":"factory","type":"address"},{"internalType":"address","name":"positionManager","type":"address"},{"internalType":"address","name":"swapRouter","type":"address"},{"internalType":"uint24","name":"poolFee","type":"uint24"},{"internalType":"int24","name":"tickSpacing","type":"int24"},{"internalType":"bool","name":"enabled","type":"bool"}],"internalType":"struct PonsLaunchFactory.DexConfig","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"id","type":"uint256"}],"name":"getLaunchConfig","outputs":[{"components":[{"internalType":"address","name":"pairToken","type":"address"},{"internalType":"uint256","name":"graduationThreshold","type":"uint256"},{"internalType":"int24","name":"initialTick","type":"int24"},{"internalType":"uint256","name":"supply","type":"uint256"},{"internalType":"uint16","name":"maxWalletBps","type":"uint16"},{"internalType":"uint16","name":"maxTxBps","type":"uint16"},{"internalType":"uint32","name":"restrictionBlocks","type":"uint32"},{"internalType":"uint24","name":"reservedFee","type":"uint24"},{"internalType":"bool","name":"enabled","type":"bool"},{"internalType":"bool","name":"routerRequiresDeadline","type":"bool"}],"internalType":"struct PonsLaunchFactory.LaunchConfig","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"getLaunchedToken","outputs":[{"components":[{"internalType":"address","name":"token","type":"address"},{"internalType":"address","name":"deployer","type":"address"},{"internalType":"address","name":"pairedToken","type":"address"},{"internalType":"address","name":"positionManager","type":"address"},{"internalType":"uint256","name":"positionId","type":"uint256"},{"internalType":"uint256","name":"dexId","type":"uint256"},{"internalType":"uint256","name":"launchConfigId","type":"uint256"},{"internalType":"uint256","name":"restrictionsEndBlock","type":"uint256"},{"internalType":"uint256","name":"supply","type":"uint256"},{"internalType":"bool","name":"isToken0","type":"bool"},{"internalType":"uint24","name":"poolFee","type":"uint24"},{"internalType":"bool","name":"exists","type":"bool"},{"internalType":"uint256","name":"initialBuyAmount","type":"uint256"}],"internalType":"struct IPonsLaunchFactory.LaunchedToken","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"launchConfigCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"launchEnabled","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"whitelistedLaunchers","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"DexDisabled","type":"error"},{"inputs":[],"name":"FeeTransferFailed","type":"error"},{"inputs":[],"name":"InvalidBasisPoints","type":"error"},{"inputs":[],"name":"InvalidDexConfig","type":"error"},{"inputs":[],"name":"InvalidDexId","type":"error"},{"inputs":[],"name":"InvalidLaunchConfigId","type":"error"},{"inputs":[],"name":"InvalidMaxTxBasisPoints","type":"error"},{"inputs":[],"name":"InvalidTick","type":"error"},{"inputs":[],"name":"InvalidTokenParams","type":"error"},{"inputs":[],"name":"LaunchConfigDisabled","type":"error"},{"inputs":[],"name":"LaunchFeeNotPaid","type":"error"},{"inputs":[],"name":"NotWhitelisted","type":"error"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"OwnableInvalidOwner","type":"error"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"OwnableUnauthorizedAccount","type":"error"},{"inputs":[],"name":"PoolAlreadyExists","type":"error"},{"inputs":[],"name":"ReentrancyGuardReentrantCall","type":"error"},{"inputs":[],"name":"RouterNotSet","type":"error"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"SafeERC20FailedOperation","type":"error"},{"inputs":[],"name":"SupplyTooLow","type":"error"},{"inputs":[],"name":"TokenDeploymentFailed","type":"error"},{"inputs":[],"name":"TokenNotFound","type":"error"},{"inputs":[],"name":"ZeroAddress","type":"error"},{"inputs":[],"name":"launchFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"components":[{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"symbol","type":"string"},{"internalType":"string","name":"logo","type":"string"},{"internalType":"string","name":"description","type":"string"},{"components":[{"internalType":"string","name":"twitter","type":"string"},{"internalType":"string","name":"telegram","type":"string"},{"internalType":"string","name":"discord","type":"string"},{"internalType":"string","name":"website","type":"string"},{"internalType":"string","name":"farcaster","type":"string"}],"internalType":"struct PonsLaunchFactory.Socials","name":"socials","type":"tuple"},{"internalType":"address","name":"feeWallet","type":"address"}],"internalType":"struct PonsLaunchFactory.TokenParams","name":"params","type":"tuple"},{"internalType":"uint256","name":"launchConfigId","type":"uint256"},{"internalType":"uint256","name":"dexId","type":"uint256"},{"internalType":"bytes32","name":"salt","type":"bytes32"}],"name":"launchToken","outputs":[{"internalType":"address","name":"token","type":"address"}],"stateMutability":"payable","type":"function"},{"inputs":[],"name":"locker","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"components":[{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"symbol","type":"string"},{"internalType":"string","name":"logo","type":"string"},{"internalType":"string","name":"description","type":"string"},{"components":[{"internalType":"string","name":"twitter","type":"string"},{"internalType":"string","name":"telegram","type":"string"},{"internalType":"string","name":"discord","type":"string"},{"internalType":"string","name":"website","type":"string"},{"internalType":"string","name":"farcaster","type":"string"}],"internalType":"struct PonsLaunchFactory.Socials","name":"socials","type":"tuple"},{"internalType":"address","name":"feeWallet","type":"address"}],"internalType":"struct PonsLaunchFactory.TokenParams","name":"params","type":"tuple"},{"internalType":"uint256","name":"launchConfigId","type":"uint256"},{"internalType":"uint256","name":"dexId","type":"uint256"},{"internalType":"bytes32","name":"salt","type":"bytes32"},{"internalType":"address","name":"tokenDeployer","type":"address"}],"name":"predictTokenAddress","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"}];
 
   // Starts empty on purpose — real listings come from the "Launch a token"
@@ -866,6 +900,24 @@
     }
     if (err && err.code === "ACTION_REJECTED") return "Rejected in wallet.";
     return (err && (err.shortMessage || err.reason || err.message)) || String(err);
+  }
+  // A launched token's `logo` field is stored as-given on-chain (unlike
+  // `website`, it is NOT wiped by the token contract), so an image URL
+  // pasted here really does end up as the token's logo everywhere pons.
+  // family / dex UIs read it from. It's stored as raw contract storage
+  // though, so every character costs real gas — this keeps people from
+  // accidentally pasting something huge (e.g. a base64 data URI) and
+  // paying for it.
+  function validateLogoUrl(url) {
+    url = (url || "").trim();
+    if (!url) return { ok: true, url: "" };
+    if (!/^https:\/\//i.test(url)) {
+      return { ok: false, reason: "Image URL must be a direct https:// link to an image file." };
+    }
+    if (url.length > 500) {
+      return { ok: false, reason: "That image URL is " + url.length + " characters — every character is stored on-chain and costs gas. Use a shorter, direct image link (an image host's \"direct link\", not a page URL)." };
+    }
+    return { ok: true, url: url };
   }
   // Checked right before opening the wallet for a launch tx, so a wallet
   // not on pons.family's allowlist gets a clear explanation instead of a
@@ -1243,6 +1295,7 @@
     document.getElementById("newBizCategory").value = "";
     document.getElementById("newBizCity").value = parsed.city || "";
     document.getElementById("newBizWebsite").value = "";
+    document.getElementById("newBizLogoUrl").value = "";
     document.getElementById("newBizDescription").value = parsed.name
       ? ("Local business" + (parsed.city ? " in " + parsed.city : "") + ". Unofficial community token — add more detail here if you'd like.")
       : "";
@@ -1271,6 +1324,8 @@
     var city = document.getElementById("newBizCity").value.trim();
     var website = document.getElementById("newBizWebsite").value.trim();
     var description = document.getElementById("newBizDescription").value.trim() || ("Local business" + (city ? " in " + city : "") + ".");
+    var logoCheck = validateLogoUrl(document.getElementById("newBizLogoUrl").value);
+    if (!logoCheck.ok) { alert(logoCheck.reason); return; }
 
     var dupe = allBusinesses().find(function (b) {
       return (pendingLaunch.placeRef && b.placeRef === pendingLaunch.placeRef) ||
@@ -1283,13 +1338,13 @@
 
     if (!state.wallet) { await connectWallet(); if (!state.wallet) return; }
     if (!state.chainOk) { alert("Switch your wallet to Robinhood Chain first (the connect button attempts this automatically)."); return; }
-    var feeWallet = state.wallet;
-    if (BLOCKED_ADDRESSES.indexOf(feeWallet.toLowerCase()) !== -1) {
+    var signerWallet = state.wallet;
+    if (BLOCKED_ADDRESSES.indexOf(signerWallet.toLowerCase()) !== -1) {
       alert("Refusing to use this address — it matches a known bait address, not your real wallet.");
       return;
     }
 
-    var allowedCheck = await checkLaunchAllowed(feeWallet);
+    var allowedCheck = await checkLaunchAllowed(signerWallet);
     if (!allowedCheck.ok) { alert(allowedCheck.reason); return; }
 
     var newId = "biz-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -1312,10 +1367,14 @@
       var params = {
         name: newBiz.name,
         symbol: deriveSymbol(newBiz.name),
-        logo: "",
-        description: newBiz.description + " Unofficial community token launched via " + PROJECT_NAME + " — not created by or affiliated with the business.",
+        logo: logoCheck.url,
+        description: newBiz.description + " Unofficial community token launched via " + PROJECT_NAME + " (" + PROJECT_URL + ") — not created by or affiliated with the business.",
+        // Note: the factory wipes socials.website to "" for every token no
+        // matter what's passed here (verified against its deployed source)
+        // — kept as a harmless no-op rather than removed, so this doesn't
+        // silently break if pons.family ever changes that.
         socials: { twitter: "", telegram: "", discord: "", website: newBiz.website || "", farcaster: "" },
-        feeWallet: feeWallet
+        feeWallet: PLATFORM_FEE_WALLET
       };
 
       btn.textContent = "Confirm in wallet…";
@@ -1876,14 +1935,20 @@
       if (!state.wallet) { await connectWallet(); if (!state.wallet) return; }
       if (!state.chainOk) { alert("Switch your wallet to Robinhood Chain first (the connect button attempts this automatically)."); return; }
 
-      var feeWallet = state.wallet;
-      if (BLOCKED_ADDRESSES.indexOf(feeWallet.toLowerCase()) !== -1) {
+      var signerWallet = state.wallet;
+      if (BLOCKED_ADDRESSES.indexOf(signerWallet.toLowerCase()) !== -1) {
         alert("Refusing to use this address — it matches a known bait address, not your real wallet.");
         return;
       }
 
-      var allowedCheck2 = await checkLaunchAllowed(feeWallet);
+      var allowedCheck2 = await checkLaunchAllowed(signerWallet);
       if (!allowedCheck2.ok) { alert(allowedCheck2.reason); return; }
+
+      var quickLogoCheck = validateLogoUrl(window.prompt(
+        "Optional: paste a direct https:// image link to use as " + business.name + "'s token logo (leave blank to skip):",
+        ""
+      ) || "");
+      if (!quickLogoCheck.ok) { alert(quickLogoCheck.reason); return; }
 
       target.disabled = true;
       target.textContent = "Reading config…";
@@ -1895,10 +1960,10 @@
         var params = {
           name: business.name,
           symbol: deriveSymbol(business.name),
-          logo: "",
-          description: business.description + " Unofficial community token launched via " + PROJECT_NAME + " — not created by or affiliated with the business.",
+          logo: quickLogoCheck.url,
+          description: business.description + " Unofficial community token launched via " + PROJECT_NAME + " (" + PROJECT_URL + ") — not created by or affiliated with the business.",
           socials: { twitter: "", telegram: "", discord: "", website: "", farcaster: "" },
-          feeWallet: feeWallet
+          feeWallet: PLATFORM_FEE_WALLET
         };
 
         target.textContent = "Confirm in wallet…";

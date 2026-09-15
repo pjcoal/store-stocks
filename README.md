@@ -88,6 +88,70 @@ and launch config, a matching `launchFee()`, and the identical
 `PONS_LAUNCH_FACTORY_ADDRESS` now both point at v2; the v1 address is kept
 around as `PONS_LAUNCH_FACTORY_ADDRESS_V1_LEGACY` for reference only.
 
+### Update — website link, token image, and the trading-fee payout wallet
+
+Three more things were verified directly against the v2 factory's and
+locker's verified source on Blockscout (not the vendored GitHub repo —
+same trust rule as above) before changing anything:
+
+1. **On-chain "website" link is a dead field.** `PonsLauncherToken`'s
+   constructor unconditionally overwrites `socials.website` to `""` for
+   every token it deploys, no matter what this site sends:
+   `socials_.website = ""; // The legacy ABI slot remains empty for every
+   newly deployed token.` There is no way to set a real on-chain website
+   link for a launched token. As a workaround, every launch now appends
+   `https://www.storestocks.xyz/` to the token's on-chain `description`
+   instead (the one free-text field that *is* stored as given).
+2. **Token image is a real, working field.** Unlike `website`, `logo` is
+   stored exactly as passed (`logo = logo_;` in the constructor, no
+   wiping). The launch form now has an optional "Token image" URL field,
+   and the quick-launch button on an existing listing prompts for one —
+   both feed straight into `TokenParams.logo`. Deliberately a URL field,
+   not a file upload: `logo` is a `string` in contract storage, so every
+   character costs real gas on-chain — a pasted data URI for even a small
+   image could cost a lot more than the launch fee itself. `validateLogoUrl()`
+   in `frontend/index.html` requires `https://` and caps it at 500 chars.
+3. **The trading-fee payout wallet.** `PonsLaunchFactory.launchToken()`
+   reads `TokenParams.feeWallet` and, immediately after locking the LP
+   position, calls `PonsLaunchLocker.setFeeRedirect(token, feeWallet)`
+   itself — the factory is one of the locker's permitted callers for that,
+   so this happens atomically in the same transaction as the launch, with
+   no separate signature needed from whoever launches. From then on,
+   `feeWallet` (not the launcher) receives the "creator" share of that
+   token's ongoing Uniswap swap-fee revenue.
+
+   What that share actually is, read live off-chain on 2026-09-15: the
+   active `DexConfig`'s pool fee is a fixed 1% (`poolFee = 10000`) — this
+   is set by pons.family's config, not by `TokenParams`, so there is no way
+   for this site to launch a token with a flat "3% tax"; 1% (currently) is
+   the whole trading fee, full stop. Of that 1%, the locker's
+   `protocolFeeShare` currently reserves 30% (of a possible 50% max) for
+   pons.family; the remaining 70% is the "creator" share this site
+   controls via `feeWallet`.
+
+   As of this update, every launch from this site sets `feeWallet` to a
+   fixed Store Stocks wallet (`0xb12b856fbE3A72aE6794b6e83bf8122FBD00D5eB`,
+   checked against `BLOCKED_ADDRESSES` like any other address), so that
+   wallet — not whoever actually signs the launch — receives 100% of the
+   creator's cut (currently 70% of 1%) of every token's trading fees,
+   permanently, for every token launched here.
+
+   **This conflicts with the "claim your fees" flow documented below.**
+   That flow was built around fees belonging to whoever launched the
+   token, reassignable to the real business owner via pons.family's CTO
+   process once claimed. With every launch now pre-redirecting fees to a
+   fixed platform wallet instead, a business owner who completes the claim
+   flow can no longer actually receive their token's trading fees the way
+   this README describes — the wallet on file for CTO purposes is the
+   platform's, not theirs, and pons.family's review team would have to
+   agree to move it away from an already-designated recipient rather than
+   from an abandoned launcher wallet. It also means this site is now
+   aggregating real trading-fee revenue from other people's tokens into a
+   wallet its owner controls — much closer to the "custodial fees
+   aggregator" pattern the section below explicitly says to get legal
+   advice on before doing. Nothing here decides that question; it's
+   flagged so it doesn't get missed.
+
 ## Setup
 
 ```bash
