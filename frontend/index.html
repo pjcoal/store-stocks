@@ -570,6 +570,8 @@
       <span class="eyebrow" style="color:var(--ink-dim);">paste a Google Maps link to prefill it</span>
     </div>
 
+    <div class="launch-hint warn" id="launchGateNotice" hidden></div>
+
     <div class="launch-card">
       <div class="launch-step">
         <span class="launch-step-num">1</span>
@@ -731,7 +733,7 @@
     "0x6c304c85f8244b8f256981447c33154406559d15",
     "0x5c2a1e7866c6cd56b388ebbaee019ae0793b8e0c"
   ];
-  var FACTORY_ABI = [{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"deployer","type":"address"},{"indexed":true,"internalType":"address","name":"dexFactory","type":"address"},{"indexed":false,"internalType":"address","name":"pairToken","type":"address"},{"indexed":false,"internalType":"uint256","name":"dexId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"launchConfigId","type":"uint256"}],"name":"TokenDeployed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"deployer","type":"address"},{"indexed":true,"internalType":"address","name":"dexFactory","type":"address"},{"indexed":false,"internalType":"address","name":"pairToken","type":"address"},{"indexed":false,"internalType":"address","name":"pool","type":"address"},{"indexed":false,"internalType":"uint256","name":"dexId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"launchConfigId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"positionId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"restrictionsEndBlock","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"initialBuyAmount","type":"uint256"}],"name":"TokenLaunched","type":"event"},{"inputs":[],"name":"dexConfigCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"id","type":"uint256"}],"name":"getDexConfig","outputs":[{"components":[{"internalType":"string","name":"name","type":"string"},{"internalType":"address","name":"factory","type":"address"},{"internalType":"address","name":"positionManager","type":"address"},{"internalType":"address","name":"swapRouter","type":"address"},{"internalType":"uint24","name":"poolFee","type":"uint24"},{"internalType":"int24","name":"tickSpacing","type":"int24"},{"internalType":"bool","name":"enabled","type":"bool"}],"internalType":"struct PonsLaunchFactory.DexConfig","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"id","type":"uint256"}],"name":"getLaunchConfig","outputs":[{"components":[{"internalType":"address","name":"pairToken","type":"address"},{"internalType":"uint256","name":"graduationThreshold","type":"uint256"},{"internalType":"int24","name":"initialTick","type":"int24"},{"internalType":"uint256","name":"supply","type":"uint256"},{"internalType":"uint16","name":"maxWalletBps","type":"uint16"},{"internalType":"uint16","name":"maxTxBps","type":"uint16"},{"internalType":"uint32","name":"restrictionBlocks","type":"uint32"},{"internalType":"uint24","name":"reservedFee","type":"uint24"},{"internalType":"bool","name":"enabled","type":"bool"},{"internalType":"bool","name":"routerRequiresDeadline","type":"bool"}],"internalType":"struct PonsLaunchFactory.LaunchConfig","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"getLaunchedToken","outputs":[{"components":[{"internalType":"address","name":"token","type":"address"},{"internalType":"address","name":"deployer","type":"address"},{"internalType":"address","name":"pairedToken","type":"address"},{"internalType":"address","name":"positionManager","type":"address"},{"internalType":"uint256","name":"positionId","type":"uint256"},{"internalType":"uint256","name":"dexId","type":"uint256"},{"internalType":"uint256","name":"launchConfigId","type":"uint256"},{"internalType":"uint256","name":"restrictionsEndBlock","type":"uint256"},{"internalType":"uint256","name":"supply","type":"uint256"},{"internalType":"bool","name":"isToken0","type":"bool"},{"internalType":"uint24","name":"poolFee","type":"uint24"},{"internalType":"bool","name":"exists","type":"bool"},{"internalType":"uint256","name":"initialBuyAmount","type":"uint256"}],"internalType":"struct IPonsLaunchFactory.LaunchedToken","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"launchConfigCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"launchEnabled","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"launchFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"components":[{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"symbol","type":"string"},{"internalType":"string","name":"logo","type":"string"},{"internalType":"string","name":"description","type":"string"},{"components":[{"internalType":"string","name":"twitter","type":"string"},{"internalType":"string","name":"telegram","type":"string"},{"internalType":"string","name":"discord","type":"string"},{"internalType":"string","name":"website","type":"string"},{"internalType":"string","name":"farcaster","type":"string"}],"internalType":"struct PonsLaunchFactory.Socials","name":"socials","type":"tuple"},{"internalType":"address","name":"feeWallet","type":"address"}],"internalType":"struct PonsLaunchFactory.TokenParams","name":"params","type":"tuple"},{"internalType":"uint256","name":"launchConfigId","type":"uint256"},{"internalType":"uint256","name":"dexId","type":"uint256"},{"internalType":"bytes32","name":"salt","type":"bytes32"}],"name":"launchToken","outputs":[{"internalType":"address","name":"token","type":"address"}],"stateMutability":"payable","type":"function"},{"inputs":[],"name":"locker","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"components":[{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"symbol","type":"string"},{"internalType":"string","name":"logo","type":"string"},{"internalType":"string","name":"description","type":"string"},{"components":[{"internalType":"string","name":"twitter","type":"string"},{"internalType":"string","name":"telegram","type":"string"},{"internalType":"string","name":"discord","type":"string"},{"internalType":"string","name":"website","type":"string"},{"internalType":"string","name":"farcaster","type":"string"}],"internalType":"struct PonsLaunchFactory.Socials","name":"socials","type":"tuple"},{"internalType":"address","name":"feeWallet","type":"address"}],"internalType":"struct PonsLaunchFactory.TokenParams","name":"params","type":"tuple"},{"internalType":"uint256","name":"launchConfigId","type":"uint256"},{"internalType":"uint256","name":"dexId","type":"uint256"},{"internalType":"bytes32","name":"salt","type":"bytes32"},{"internalType":"address","name":"tokenDeployer","type":"address"}],"name":"predictTokenAddress","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"}];
+  var FACTORY_ABI = [{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"deployer","type":"address"},{"indexed":true,"internalType":"address","name":"dexFactory","type":"address"},{"indexed":false,"internalType":"address","name":"pairToken","type":"address"},{"indexed":false,"internalType":"uint256","name":"dexId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"launchConfigId","type":"uint256"}],"name":"TokenDeployed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token","type":"address"},{"indexed":true,"internalType":"address","name":"deployer","type":"address"},{"indexed":true,"internalType":"address","name":"dexFactory","type":"address"},{"indexed":false,"internalType":"address","name":"pairToken","type":"address"},{"indexed":false,"internalType":"address","name":"pool","type":"address"},{"indexed":false,"internalType":"uint256","name":"dexId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"launchConfigId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"positionId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"restrictionsEndBlock","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"initialBuyAmount","type":"uint256"}],"name":"TokenLaunched","type":"event"},{"inputs":[],"name":"dexConfigCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"id","type":"uint256"}],"name":"getDexConfig","outputs":[{"components":[{"internalType":"string","name":"name","type":"string"},{"internalType":"address","name":"factory","type":"address"},{"internalType":"address","name":"positionManager","type":"address"},{"internalType":"address","name":"swapRouter","type":"address"},{"internalType":"uint24","name":"poolFee","type":"uint24"},{"internalType":"int24","name":"tickSpacing","type":"int24"},{"internalType":"bool","name":"enabled","type":"bool"}],"internalType":"struct PonsLaunchFactory.DexConfig","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"id","type":"uint256"}],"name":"getLaunchConfig","outputs":[{"components":[{"internalType":"address","name":"pairToken","type":"address"},{"internalType":"uint256","name":"graduationThreshold","type":"uint256"},{"internalType":"int24","name":"initialTick","type":"int24"},{"internalType":"uint256","name":"supply","type":"uint256"},{"internalType":"uint16","name":"maxWalletBps","type":"uint16"},{"internalType":"uint16","name":"maxTxBps","type":"uint16"},{"internalType":"uint32","name":"restrictionBlocks","type":"uint32"},{"internalType":"uint24","name":"reservedFee","type":"uint24"},{"internalType":"bool","name":"enabled","type":"bool"},{"internalType":"bool","name":"routerRequiresDeadline","type":"bool"}],"internalType":"struct PonsLaunchFactory.LaunchConfig","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"getLaunchedToken","outputs":[{"components":[{"internalType":"address","name":"token","type":"address"},{"internalType":"address","name":"deployer","type":"address"},{"internalType":"address","name":"pairedToken","type":"address"},{"internalType":"address","name":"positionManager","type":"address"},{"internalType":"uint256","name":"positionId","type":"uint256"},{"internalType":"uint256","name":"dexId","type":"uint256"},{"internalType":"uint256","name":"launchConfigId","type":"uint256"},{"internalType":"uint256","name":"restrictionsEndBlock","type":"uint256"},{"internalType":"uint256","name":"supply","type":"uint256"},{"internalType":"bool","name":"isToken0","type":"bool"},{"internalType":"uint24","name":"poolFee","type":"uint24"},{"internalType":"bool","name":"exists","type":"bool"},{"internalType":"uint256","name":"initialBuyAmount","type":"uint256"}],"internalType":"struct IPonsLaunchFactory.LaunchedToken","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"launchConfigCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"launchEnabled","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"whitelistedLaunchers","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"DexDisabled","type":"error"},{"inputs":[],"name":"FeeTransferFailed","type":"error"},{"inputs":[],"name":"InvalidBasisPoints","type":"error"},{"inputs":[],"name":"InvalidDexConfig","type":"error"},{"inputs":[],"name":"InvalidDexId","type":"error"},{"inputs":[],"name":"InvalidLaunchConfigId","type":"error"},{"inputs":[],"name":"InvalidMaxTxBasisPoints","type":"error"},{"inputs":[],"name":"InvalidTick","type":"error"},{"inputs":[],"name":"InvalidTokenParams","type":"error"},{"inputs":[],"name":"LaunchConfigDisabled","type":"error"},{"inputs":[],"name":"LaunchFeeNotPaid","type":"error"},{"inputs":[],"name":"NotWhitelisted","type":"error"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"OwnableInvalidOwner","type":"error"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"OwnableUnauthorizedAccount","type":"error"},{"inputs":[],"name":"PoolAlreadyExists","type":"error"},{"inputs":[],"name":"ReentrancyGuardReentrantCall","type":"error"},{"inputs":[],"name":"RouterNotSet","type":"error"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"SafeERC20FailedOperation","type":"error"},{"inputs":[],"name":"SupplyTooLow","type":"error"},{"inputs":[],"name":"TokenDeploymentFailed","type":"error"},{"inputs":[],"name":"TokenNotFound","type":"error"},{"inputs":[],"name":"ZeroAddress","type":"error"},{"inputs":[],"name":"launchFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"components":[{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"symbol","type":"string"},{"internalType":"string","name":"logo","type":"string"},{"internalType":"string","name":"description","type":"string"},{"components":[{"internalType":"string","name":"twitter","type":"string"},{"internalType":"string","name":"telegram","type":"string"},{"internalType":"string","name":"discord","type":"string"},{"internalType":"string","name":"website","type":"string"},{"internalType":"string","name":"farcaster","type":"string"}],"internalType":"struct PonsLaunchFactory.Socials","name":"socials","type":"tuple"},{"internalType":"address","name":"feeWallet","type":"address"}],"internalType":"struct PonsLaunchFactory.TokenParams","name":"params","type":"tuple"},{"internalType":"uint256","name":"launchConfigId","type":"uint256"},{"internalType":"uint256","name":"dexId","type":"uint256"},{"internalType":"bytes32","name":"salt","type":"bytes32"}],"name":"launchToken","outputs":[{"internalType":"address","name":"token","type":"address"}],"stateMutability":"payable","type":"function"},{"inputs":[],"name":"locker","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"components":[{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"symbol","type":"string"},{"internalType":"string","name":"logo","type":"string"},{"internalType":"string","name":"description","type":"string"},{"components":[{"internalType":"string","name":"twitter","type":"string"},{"internalType":"string","name":"telegram","type":"string"},{"internalType":"string","name":"discord","type":"string"},{"internalType":"string","name":"website","type":"string"},{"internalType":"string","name":"farcaster","type":"string"}],"internalType":"struct PonsLaunchFactory.Socials","name":"socials","type":"tuple"},{"internalType":"address","name":"feeWallet","type":"address"}],"internalType":"struct PonsLaunchFactory.TokenParams","name":"params","type":"tuple"},{"internalType":"uint256","name":"launchConfigId","type":"uint256"},{"internalType":"uint256","name":"dexId","type":"uint256"},{"internalType":"bytes32","name":"salt","type":"bytes32"},{"internalType":"address","name":"tokenDeployer","type":"address"}],"name":"predictTokenAddress","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"}];
 
   // Starts empty on purpose — real listings come from the "Launch a token"
   // panel (Google Maps link) or from registering a transaction launched
@@ -811,6 +813,83 @@
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((email || "").trim());
   }
   function short(addr) { return addr ? addr.slice(0, 6) + "…" + addr.slice(-4) : ""; }
+  // Turns the Pons factory's custom Solidity errors (which ethers can only
+  // report as an opaque 4-byte selector like "0x584a7938" unless the ABI
+  // has the matching `error` entries — see FACTORY_ABI above) into a
+  // message an average user can actually act on.
+  var CONTRACT_ERROR_MESSAGES = {
+    NotWhitelisted: "Launches on the Pons factory are currently invite-only — public launching is switched off, and this wallet isn't on pons.family's launch allowlist. Ask pons.family to add your wallet, or wait until they open public launches, then try again.",
+    LaunchFeeNotPaid: "The launch fee just changed. Reload the page (so it picks up the new fee) and try again.",
+    InvalidLaunchConfigId: "Pons.family hasn't enabled a launch configuration for this factory yet — this isn't something this site controls.",
+    LaunchConfigDisabled: "The launch configuration this site uses is currently disabled on pons.family's factory — try again later.",
+    InvalidDexId: "Pons.family hasn't enabled a DEX configuration for this factory yet — this isn't something this site controls.",
+    DexDisabled: "The DEX configuration this site uses is currently disabled on pons.family's factory — try again later.",
+    InvalidDexConfig: "Pons.family's factory doesn't have a usable DEX configuration right now — this isn't something this site controls.",
+    PoolAlreadyExists: "A pool for this exact token already exists on-chain — try launching again (it gets a fresh salt each time) or tweak the name.",
+    InvalidTokenParams: "One of the token's fields (name, symbol, or description) isn't valid — shorten it and try again.",
+    SupplyTooLow: "The configured token supply is too low to launch — this isn't something this site controls.",
+    ZeroAddress: "The factory rejected a zero address in this call — try reconnecting your wallet.",
+    RouterNotSet: "Pons.family's factory doesn't have a swap router configured yet — this isn't something this site controls.",
+    TokenDeploymentFailed: "The token contract failed to deploy on-chain — try again in a moment.",
+    FeeTransferFailed: "The launch fee transfer failed on-chain — try again.",
+    SafeERC20FailedOperation: "A token transfer failed on-chain while launching — try again.",
+    TokenNotFound: "That token isn't recognized by the Pons factory.",
+    ReentrancyGuardReentrantCall: "The factory rejected an overlapping request — wait a moment and try again.",
+    OwnableUnauthorizedAccount: "That action needs the factory owner's wallet, not yours.",
+    OwnableInvalidOwner: "Invalid owner address for that action.",
+    InvalidBasisPoints: "Pons.family's factory has an invalid fee/limit configuration — this isn't something this site controls.",
+    InvalidMaxTxBasisPoints: "Pons.family's factory has an invalid transaction-limit configuration — this isn't something this site controls.",
+    InvalidTick: "Pons.family's factory has an invalid pricing configuration — this isn't something this site controls."
+  };
+  function friendlyContractError(err) {
+    // ethers v6 surfaces revert data in a few different shapes depending on
+    // where the failure happened (estimateGas vs a mined revert vs a wallet
+    // RPC error) — check the common spots.
+    var data = err && (err.data || (err.error && err.error.data) || (err.info && err.info.error && err.info.error.data));
+    if (typeof data === "string" && data.length >= 10) {
+      try {
+        var parsed = new ethers.Interface(FACTORY_ABI).parseError(data);
+        if (parsed && CONTRACT_ERROR_MESSAGES[parsed.name]) return CONTRACT_ERROR_MESSAGES[parsed.name];
+        if (parsed) return "Pons factory rejected this: " + parsed.name + "() — this isn't something this site controls.";
+      } catch (e) { /* not a custom error this ABI knows about — fall through */ }
+    }
+    if (err && err.code === "ACTION_REJECTED") return "Rejected in wallet.";
+    return (err && (err.shortMessage || err.reason || err.message)) || String(err);
+  }
+  // Checked right before opening the wallet for a launch tx, so a wallet
+  // not on pons.family's allowlist gets a clear explanation instead of a
+  // MetaMask popup followed by a confusing on-chain revert.
+  async function checkLaunchAllowed(wallet) {
+    try {
+      var enabled = await readFactory.launchEnabled();
+      if (enabled) return { ok: true };
+      var whitelisted = await readFactory.whitelistedLaunchers(wallet);
+      if (whitelisted) return { ok: true };
+      return { ok: false, reason: CONTRACT_ERROR_MESSAGES.NotWhitelisted };
+    } catch (e) {
+      return { ok: true }; // couldn't check in advance — let the real tx surface any error
+    }
+  }
+  // Shows a heads-up above the launch form when the factory's public gate
+  // is closed, so people find out before connecting a wallet and getting a
+  // confusing on-chain revert, not after.
+  async function refreshLaunchGateNotice() {
+    var box = document.getElementById("launchGateNotice");
+    try {
+      var enabled = await readFactory.launchEnabled();
+      if (enabled) { box.hidden = true; return; }
+      if (state.wallet) {
+        var whitelisted = await readFactory.whitelistedLaunchers(state.wallet);
+        box.hidden = false;
+        box.textContent = whitelisted
+          ? "Public launches are closed on pons.family's factory right now, but your connected wallet is on the allowlist — you're clear to launch."
+          : "Heads up: pons.family's factory currently only allows allowlisted wallets to launch (public launching is switched off), and your connected wallet isn't on that list. Launching will fail until pons.family adds it or opens public launches.";
+      } else {
+        box.hidden = false;
+        box.textContent = "Heads up: pons.family's factory currently only allows allowlisted wallets to launch (public launching is switched off). Connect your wallet to check whether it's on the list.";
+      }
+    } catch (e) { box.hidden = true; }
+  }
   function timeAgo(iso) {
     if (!iso) return "—";
     var diff = Date.now() - new Date(iso).getTime();
@@ -907,6 +986,7 @@
     renderWalletBox();
     renderTable();
     renderPortfolio();
+    refreshLaunchGateNotice();
   }
 
   function renderWalletBox() {
@@ -1198,6 +1278,9 @@
       return;
     }
 
+    var allowedCheck = await checkLaunchAllowed(feeWallet);
+    if (!allowedCheck.ok) { alert(allowedCheck.reason); return; }
+
     var newId = "biz-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     var newBiz = {
       id: newId, name: name, category: category, city: city, website: website,
@@ -1266,7 +1349,7 @@
       populateRegisterSelect();
       document.getElementById("listings").scrollIntoView({ behavior: "smooth" });
     } catch (err) {
-      alert("Launch failed or was rejected: " + (err && err.message ? err.message : err));
+      alert("Launch failed or was rejected: " + friendlyContractError(err));
     }
     btn.disabled = false;
     btn.textContent = "Connect wallet & launch";
@@ -1788,6 +1871,9 @@
         return;
       }
 
+      var allowedCheck2 = await checkLaunchAllowed(feeWallet);
+      if (!allowedCheck2.ok) { alert(allowedCheck2.reason); return; }
+
       target.disabled = true;
       target.textContent = "Reading config…";
       try {
@@ -1834,7 +1920,7 @@
         renderPortfolio();
         renderLaunchLog();
       } catch (err) {
-        alert("Launch failed or was rejected: " + (err && err.message ? err.message : err));
+        alert("Launch failed or was rejected: " + friendlyContractError(err));
         target.disabled = false;
         target.textContent = "Launch";
       }
@@ -1863,6 +1949,7 @@
   renderQueue();
   renderMap();
   renderPortfolio();
+  refreshLaunchGateNotice();
   initDb();
 })();
 </script>
