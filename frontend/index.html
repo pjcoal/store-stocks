@@ -797,7 +797,7 @@
     if (placeIdMatch) result.placeRef = placeIdMatch[1];
 
     if (!result.name && !coordMatch) {
-      return { ok: false, reason: "Couldn't find a business name or coordinates in that link. Make sure it's a full \"…/maps/place/…\" URL, not a search or directions link." };
+      return { ok: false, reason: "That looks like a Google Maps search-results link, not a specific business's page — Google hides the business info in an opaque parameter on search links, so there's nothing here to read. Fix: search for the business on Google Maps, click its pin or name so its own info panel opens, then copy the URL from the address bar at that point — it should contain \"/maps/place/\"." };
     }
     return result;
   }
