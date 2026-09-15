@@ -50,14 +50,17 @@ service cloud.firestore {
 
     // ---------------- helpers ----------------
     function isValidBusiness(d) {
-      return d.keys().hasOnly(['id','name','category','city','website','mapX','mapY','description','mapsUrl','placeRef','createdAt'])
+      return d.keys().hasOnly(['id','name','category','city','website','lat','lng','description','mapsUrl','placeRef','createdAt'])
         && d.id is string && d.id.size() > 0 && d.id.size() < 100
         && d.name is string && d.name.size() > 0 && d.name.size() < 140
         && d.category is string && d.category.size() < 60
         && d.city is string && d.city.size() < 100
         && d.website is string && d.website.size() < 200
-        && d.mapX is number && d.mapX >= 0 && d.mapX <= 100
-        && d.mapY is number && d.mapY >= 0 && d.mapY <= 100
+        // lat/lng are nullable — a listing launched from a Google Maps link
+        // without coordinates in it still gets a document, it just has no
+        // pin on the real map (see frontend/index.html renderMap()).
+        && (d.lat == null || (d.lat is number && d.lat >= -90 && d.lat <= 90))
+        && (d.lng == null || (d.lng is number && d.lng >= -180 && d.lng <= 180))
         && d.description is string && d.description.size() < 2000
         && d.mapsUrl is string && d.mapsUrl.size() < 500
         && (d.placeRef == null || (d.placeRef is string && d.placeRef.size() < 200))

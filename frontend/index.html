@@ -4,6 +4,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.17.0/ethers.umd.min.js"></script>
 <!--
+  Leaflet — real, interactive street map (OpenStreetMap data, CARTO's free
+  dark basemap tiles). No API key, no billing account, no request limit —
+  unlike the Google Maps JS API, this needs zero setup. Renders the real map
+  in the hero panel; businesses still capture a Google Maps link (see
+  parseGoogleMapsUrl below) for their "Open in Google Maps" link and to pull
+  a real lat/lng for their pin on this map.
+-->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<!--
   Firebase (compat SDK) — only used when this page is NOT running inside a
   Cowork Artifact (see firebaseConfig + initDb() below). If you're viewing
   this inside claude.ai's Artifact preview, window.claude.use("db") is used
@@ -187,10 +197,16 @@
     border: 1px solid var(--hairline);
     box-shadow: var(--shadow);
   }
-  .map-panel svg.streets { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .leaflet-map { position: absolute; inset: 0; background: var(--nav-bg); }
+  .leaflet-map .leaflet-control-attribution {
+    background: rgba(13,18,16,0.72); color: rgba(238,242,238,0.55); font-size: 9px;
+  }
+  .leaflet-map .leaflet-control-attribution a { color: rgba(238,242,238,0.75); }
+  .leaflet-map .leaflet-control-zoom a {
+    background: rgba(13,18,16,0.72); color: #eef2ee; border-color: rgba(238,242,238,0.14);
+  }
+  .leaflet-map .leaflet-control-zoom a:hover { background: rgba(62,207,110,0.24); }
   .pin {
-    position: absolute;
-    transform: translate(-50%, -50%);
     width: 15px; height: 15px;
     border-radius: 50%;
     border: 2px solid var(--nav-bg);
@@ -503,101 +519,7 @@
     </div>
 
     <div class="map-panel" id="mapPanel">
-      <svg class="streets" viewBox="0 0 400 310" preserveAspectRatio="none" aria-hidden="true">
-        <rect width="400" height="310" fill="var(--nav-bg)"/>
-
-        <!-- water -->
-        <path d="M0,0 L58,0 C36,58 72,132 28,216 C8,256 18,288 0,310 Z" fill="rgba(70,150,215,0.09)"/>
-        <path d="M0,0 L58,0 C36,58 72,132 28,216 C8,256 18,288 0,310" fill="none" stroke="rgba(120,180,220,0.22)" stroke-width="1.4"/>
-        <g stroke="rgba(120,180,220,0.16)" stroke-width="1.2">
-          <line x1="8" y1="120" x2="28" y2="122"/>
-          <line x1="4" y1="196" x2="22" y2="199"/>
-        </g>
-
-        <!-- park -->
-        <path d="M214,68 C232,60 258,62 274,72 C286,80 288,98 280,112 C270,126 248,130 230,122 C214,115 206,98 208,84 C209,78 210,72 214,68 Z"
-              fill="rgba(62,207,110,0.1)" stroke="rgba(62,207,110,0.24)" stroke-width="1"/>
-        <path d="M222,108 C234,96 250,90 268,94" fill="none" stroke="rgba(62,207,110,0.2)" stroke-width="0.8" stroke-dasharray="1.5 2.4"/>
-        <g fill="rgba(62,207,110,0.42)">
-          <circle cx="230" cy="84" r="2"/>
-          <circle cx="246" cy="76" r="2"/>
-          <circle cx="264" cy="86" r="2"/>
-          <circle cx="238" cy="102" r="2"/>
-          <circle cx="260" cy="108" r="2"/>
-          <circle cx="274" cy="96" r="2"/>
-          <circle cx="222" cy="96" r="2"/>
-        </g>
-
-        <!-- city blocks, subdivided into individual building parcels -->
-        <g fill="rgba(238,242,238,0.045)" stroke="rgba(238,242,238,0.09)" stroke-width="0.6">
-          <rect x="14" y="26" width="29" height="24"/><rect x="47" y="26" width="31" height="24"/>
-          <rect x="100" y="14" width="36" height="17"/><rect x="140" y="14" width="40" height="17"/>
-          <rect x="100" y="35" width="36" height="17"/><rect x="140" y="35" width="40" height="17"/>
-          <rect x="200" y="20" width="42" height="30"/><rect x="246" y="20" width="44" height="30"/>
-          <rect x="315" y="14" width="33" height="17"/><rect x="352" y="14" width="33" height="17"/>
-          <rect x="315" y="35" width="33" height="17"/><rect x="352" y="35" width="33" height="17"/>
-          <rect x="14" y="70" width="29" height="31"/><rect x="47" y="70" width="31" height="31"/>
-          <rect x="14" y="105" width="29" height="31"/><rect x="47" y="105" width="31" height="31"/>
-          <rect x="100" y="66" width="36" height="36"/><rect x="140" y="66" width="38" height="36"/>
-          <rect x="100" y="106" width="36" height="36"/><rect x="140" y="106" width="38" height="36"/>
-          <rect x="310" y="66" width="36" height="36"/><rect x="350" y="66" width="35" height="36"/>
-          <rect x="310" y="106" width="36" height="36"/><rect x="350" y="106" width="35" height="36"/>
-          <rect x="14" y="160" width="29" height="29"/><rect x="47" y="160" width="31" height="29"/>
-          <rect x="14" y="193" width="29" height="27"/><rect x="47" y="193" width="31" height="27"/>
-          <rect x="200" y="160" width="42" height="29"/><rect x="246" y="160" width="44" height="29"/>
-          <rect x="200" y="193" width="42" height="27"/><rect x="246" y="193" width="44" height="27"/>
-          <rect x="315" y="160" width="33" height="29"/><rect x="352" y="160" width="33" height="29"/>
-          <rect x="14" y="240" width="29" height="26"/><rect x="47" y="240" width="31" height="26"/>
-          <rect x="14" y="270" width="29" height="25"/><rect x="47" y="270" width="31" height="25"/>
-          <rect x="100" y="240" width="36" height="55"/><rect x="140" y="240" width="38" height="55"/>
-          <rect x="200" y="240" width="42" height="55"/><rect x="246" y="240" width="44" height="55"/>
-          <rect x="315" y="240" width="33" height="55"/><rect x="352" y="240" width="33" height="55"/>
-        </g>
-
-        <!-- local streets -->
-        <g stroke="rgba(238,242,238,0.07)" stroke-width="1" stroke-linecap="round">
-          <line x1="0" y1="20" x2="400" y2="20"/>
-          <line x1="0" y1="105" x2="400" y2="105"/>
-          <line x1="0" y1="190" x2="400" y2="190"/>
-          <line x1="0" y1="270" x2="400" y2="270"/>
-          <line x1="40" y1="0" x2="40" y2="310"/>
-          <line x1="140" y1="0" x2="140" y2="310"/>
-          <line x1="352" y1="0" x2="352" y2="310"/>
-        </g>
-
-        <!-- arterial roads -->
-        <g stroke="rgba(238,242,238,0.18)" stroke-width="2.6" stroke-linecap="round">
-          <line x1="0" y1="60" x2="400" y2="60"/>
-          <line x1="0" y1="150" x2="400" y2="150"/>
-          <line x1="0" y1="230" x2="400" y2="230"/>
-          <line x1="90" y1="0" x2="90" y2="310"/>
-        </g>
-
-        <!-- primary road, drawn with a casing like a highway on a real map -->
-        <path d="M300,0 L300,310" fill="none" stroke="rgba(62,207,110,0.14)" stroke-width="7" stroke-linecap="round"/>
-        <path d="M300,0 L300,310" fill="none" stroke="rgba(62,207,110,0.4)" stroke-width="2.6" stroke-linecap="round"/>
-
-        <!-- curved avenue -->
-        <path d="M0,272 Q160,210 240,150 T400,42" fill="none" stroke="rgba(62,207,110,0.13)" stroke-width="6" stroke-linecap="round"/>
-        <path d="M0,272 Q160,210 240,150 T400,42" fill="none" stroke="rgba(62,207,110,0.36)" stroke-width="2.2" stroke-linecap="round"/>
-
-        <!-- intersection markers -->
-        <circle cx="300" cy="60" r="3.4" fill="var(--nav-bg)" stroke="rgba(62,207,110,0.45)" stroke-width="1.2"/>
-        <circle cx="90" cy="150" r="3.4" fill="var(--nav-bg)" stroke="rgba(238,242,238,0.22)" stroke-width="1.2"/>
-        <circle cx="300" cy="230" r="3.4" fill="var(--nav-bg)" stroke="rgba(62,207,110,0.45)" stroke-width="1.2"/>
-
-        <!-- plaza -->
-        <rect x="181" y="141" width="24" height="17" rx="2" fill="rgba(238,242,238,0.07)" stroke="rgba(238,242,238,0.15)" stroke-width="1"/>
-
-        <!-- street labels -->
-        <g font-family="Manrope, sans-serif" fill="rgba(238,242,238,0.4)" style="text-transform:uppercase;">
-          <text x="150" y="57" font-size="7" letter-spacing="0.6">Market St</text>
-          <text x="303" y="145" font-size="7" letter-spacing="0.6" transform="rotate(90 303 145)">High Street</text>
-          <text x="8" y="147" font-size="7" letter-spacing="0.6">Mill Ave</text>
-          <text x="150" y="227" font-size="7" letter-spacing="0.6">Church Ln</text>
-          <text x="208" y="66" font-size="6.5" letter-spacing="0.5" fill="rgba(62,207,110,0.5)">Riverside Park</text>
-        </g>
-      </svg>
+      <div id="leafletMap" class="leaflet-map" aria-hidden="true"></div>
 
       <div class="map-shortcuts" role="group" aria-label="Map shortcuts">
         <button type="button" class="map-shortcut" data-target="listings">
@@ -629,7 +551,6 @@
         <span class="legend-item"><i class="legend-dot pin-claimed"></i>Claimed</span>
       </div>
 
-      <div id="pinLayer"></div>
       <div id="mapCard"></div>
     </div>
   </section>
@@ -653,7 +574,7 @@
         <span class="launch-step-num">1</span>
         <div>
           <div class="launch-step-title">Paste the business's Google Maps link</div>
-          <p class="launch-copy">This fills in the name, an approximate spot on the map above, and a starter description — check everything before you launch. This page can't make outside network requests, so it only reads what's already inside the link's own text (the place name and coordinates, when they're there) — it won't pull opening hours, phone numbers, or photos from Google.</p>
+          <p class="launch-copy">This fills in the name, its real spot on the map above (when the link has coordinates in it), and a starter description — check everything before you launch. This page can't make outside network requests, so it only reads what's already inside the link's own text (the place name and coordinates, when they're there) — it won't pull opening hours, phone numbers, or photos from Google.</p>
         </div>
       </div>
 
@@ -870,10 +791,6 @@
     var h = 0;
     for (var i = 0; i < str.length; i++) { h = (h * 31 + str.charCodeAt(i)) >>> 0; }
     return min + (h % (max - min + 1));
-  }
-  function mapPositionFor(parsed) {
-    var key = (parsed.lat != null && parsed.lng != null) ? (parsed.lat.toFixed(4) + "," + parsed.lng.toFixed(4)) : (parsed.name || "business");
-    return { mapX: hashToRange(key + ":x", 10, 90), mapY: hashToRange(key + ":y", 12, 88) };
   }
   // Deterministic per-business color, used for the listings/detail avatar
   // chip — same business always gets the same color, no real logo required.
@@ -1108,24 +1025,72 @@
   }
 
   // ---------- map ----------
+  // Real, interactive street map (Leaflet + OpenStreetMap data via CARTO's
+  // free dark tiles — no API key, no billing account, no request limit).
+  // Businesses get a pin when a real lat/lng was pulled from the Google Maps
+  // link pasted when they were launched (see parseGoogleMapsUrl); a listing
+  // launched without one still shows up everywhere else, it just has no pin.
+  var leafletMap = null;
+  var markersLayer = null;
+  var mapMarkers = {};
+  var DEFAULT_MAP_CENTER = [40.7128, -74.006]; // placeholder view before any business has a pin
+  var DEFAULT_MAP_ZOOM = 12;
+
+  function initMap() {
+    if (leafletMap || typeof L === "undefined") return;
+    leafletMap = L.map("leafletMap", { zoomControl: false, attributionControl: true })
+      .setView(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>',
+      subdomains: "abcd",
+      maxZoom: 19
+    }).addTo(leafletMap);
+    L.control.zoom({ position: "bottomright" }).addTo(leafletMap);
+    markersLayer = L.layerGroup().addTo(leafletMap);
+    leafletMap.on("move zoom", renderMapCard);
+    leafletMap.on("click", function () { activePin = null; renderMapCard(); });
+  }
+
   function renderMap() {
-    var layer = document.getElementById("pinLayer");
-    layer.innerHTML = allBusinesses().map(function (b) {
+    initMap();
+    if (!leafletMap) return; // Leaflet script hasn't loaded yet
+    markersLayer.clearLayers();
+    mapMarkers = {};
+    var pts = [];
+    allBusinesses().forEach(function (b) {
+      if (b.lat == null || b.lng == null) return;
       var status = claimStatus(b.id);
-      return '<div class="pin pin-' + status + (activePin === b.id ? " active" : "") + '" style="left:' + b.mapX + '%; top:' + b.mapY + '%;" data-sym="$' + deriveSymbol(b.name) + '" data-id="' + b.id + '" role="button" tabindex="0" aria-label="' + esc(b.name) + '"></div>';
-    }).join("");
+      var icon = L.divIcon({
+        className: "",
+        html: '<div class="pin pin-' + status + (activePin === b.id ? " active" : "") + '" data-sym="$' + deriveSymbol(b.name) + '"></div>',
+        iconSize: [15, 15],
+        iconAnchor: [7, 7]
+      });
+      var marker = L.marker([b.lat, b.lng], { icon: icon, alt: b.name, keyboard: true, title: b.name });
+      marker.on("click", function (e) {
+        if (e && e.originalEvent) e.originalEvent.stopPropagation();
+        activePin = b.id;
+        renderMap();
+      });
+      marker.addTo(markersLayer);
+      mapMarkers[b.id] = marker;
+      pts.push([b.lat, b.lng]);
+    });
+    if (pts.length) leafletMap.fitBounds(pts, { padding: [36, 36], maxZoom: 15 });
     renderMapCard();
   }
 
   function renderMapCard() {
     var cardBox = document.getElementById("mapCard");
     var b = allBusinesses().find(function (x) { return x.id === activePin; });
-    if (!b) { cardBox.innerHTML = ""; return; }
+    if (!b || b.lat == null || b.lng == null || !leafletMap) { cardBox.innerHTML = ""; return; }
     var status = claimStatus(b.id);
     var statusLabel = status === "claimed" ? "Claimed" : status === "pending" ? "Pending" : "Unclaimed";
     var launch = state.launches[b.id];
-    var left = b.mapX > 55 ? (b.mapX - 24) + "%" : (b.mapX + 5) + "%";
-    var top = b.mapY > 55 ? (b.mapY - 34) + "%" : (b.mapY + 6) + "%";
+    var pt = leafletMap.latLngToContainerPoint([b.lat, b.lng]);
+    var panelW = document.getElementById("mapPanel").clientWidth;
+    var left = (pt.x > panelW * 0.55 ? pt.x - 226 : pt.x + 16) + "px";
+    var top = Math.max(8, pt.y - 60) + "px";
     cardBox.innerHTML =
       '<div class="map-card" style="left:' + left + '; top:' + top + ';">' +
         '<div class="map-card-top"><span class="map-card-name">' + esc(b.name) + '</span><span class="map-card-sym t-sym ' + status + '">$' + deriveSymbol(b.name) + '</span></div>' +
@@ -1137,12 +1102,6 @@
       '</div>';
   }
 
-  document.getElementById("pinLayer").addEventListener("click", function (e) {
-    var pin = e.target.closest(".pin");
-    if (!pin) return;
-    activePin = pin.getAttribute("data-id");
-    renderMap();
-  });
   document.getElementById("mapCard").addEventListener("click", function (e) {
     var link = e.target.closest("[data-scroll-to]");
     if (!link) return;
@@ -1195,10 +1154,13 @@
 
     var found = [];
     if (parsed.name) found.push("the name");
-    if (parsed.lat != null) found.push("a rough location");
+    if (parsed.lat != null) found.push("its coordinates");
     hint.className = "launch-hint ok";
     hint.textContent = (found.length ? "Pulled " + found.join(" and ") + " straight from the link text — no outside request was made." : "Link parsed, but it didn't contain a name or coordinates — fill the fields in by hand.") +
-      " Its spot on the map above is a stylized placeholder, not GPS-accurate. Check the fields below, then launch.";
+      (parsed.lat != null
+        ? " It'll get a real, accurately placed pin on the map above."
+        : " That link didn't include coordinates (look for \"@lat,lng\" in the URL), so it won't get a pin on the map above — it'll still show up in Listings.") +
+      " Check the fields below, then launch.";
     form.hidden = false;
     document.getElementById("launchStep2").hidden = false;
   });
@@ -1231,11 +1193,12 @@
       return;
     }
 
-    var pos = mapPositionFor(pendingLaunch);
     var newId = "biz-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     var newBiz = {
       id: newId, name: name, category: category, city: city, website: website,
-      mapX: pos.mapX, mapY: pos.mapY, description: description,
+      lat: pendingLaunch.lat != null ? pendingLaunch.lat : null,
+      lng: pendingLaunch.lng != null ? pendingLaunch.lng : null,
+      description: description,
       mapsUrl: pendingLaunch.sourceUrl || "", placeRef: pendingLaunch.placeRef || null,
       createdAt: new Date().toISOString()
     };
