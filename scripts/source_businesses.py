@@ -16,8 +16,8 @@ Environment:
     GOOGLE_PLACES_API_KEY   your own Google Places API key (never Claude's)
 
 Usage:
-    python3 source_businesses.py --query "coffee shop" --location "Bristol, UK" --limit 20
-    python3 source_businesses.py --query "hardware store" --location "Leeds, UK" --out data/businesses_leeds.json
+    python3 source_businesses.py --query "coffee shop" --location "New York, NY" --limit 20
+    python3 source_businesses.py --query "hardware store" --location "Brooklyn, NY" --out data/businesses_brooklyn.json
 
 IMPORTANT: sourcing a business's name/logo here does not create any
 relationship with that business and does not grant you rights to its brand.
@@ -97,7 +97,7 @@ def normalize(place, details, category):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--query", required=True, help='e.g. "coffee shop"')
-    parser.add_argument("--location", required=True, help='e.g. "Bristol, UK"')
+    parser.add_argument("--location", required=True, help='e.g. "New York, NY"')
     parser.add_argument("--limit", type=int, default=20)
     parser.add_argument("--out", default="data/businesses.json")
     parser.add_argument("--skip-details", action="store_true", help="skip the Details call (fewer fields, fewer API credits)")

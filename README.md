@@ -263,7 +263,7 @@ You'll need:
 
 ```bash
 export GOOGLE_PLACES_API_KEY=your_key_here
-python3 scripts/source_businesses.py --query "coffee shop" --location "Bristol, UK" --out data/businesses.json
+python3 scripts/source_businesses.py --query "coffee shop" --location "New York, NY" --out data/businesses.json
 ```
 
 This only writes a JSON file. Nothing is published or launched yet.
