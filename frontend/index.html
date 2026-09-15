@@ -479,8 +479,6 @@
     <a class="nav-link" href="#queue"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 14v-2l3-3 3 4 4-6 4 3v4"/></svg><span class="nav-label">Admin</span></a>
   </div>
   <div style="display:flex; align-items:center; gap:8px;">
-    <span class="chip" id="netChip">chain: —</span>
-    <span class="chip" id="feeChip">fee: reading…</span>
     <button class="btn btn-nav btn-small" id="walletBtn">Connect wallet</button>
   </div>
 </nav>
@@ -927,13 +925,10 @@
   var liveLaunchFee = null;
   readFactory.launchFee().then(function (fee) {
     liveLaunchFee = fee;
-    document.getElementById("feeChip").textContent = "fee: " + ethers.formatEther(fee) + " ETH";
-    document.getElementById("feeChip").classList.add("chip-live");
     document.getElementById("newBizFeePreview").textContent = ethers.formatEther(fee);
     renderTable();
     renderMapCard();
   }).catch(function () {
-    document.getElementById("feeChip").textContent = "fee: unavailable";
     document.getElementById("newBizFeePreview").textContent = "unavailable";
   });
 
@@ -999,13 +994,10 @@
   function renderWalletBox() {
     var btn = document.getElementById("walletBtn");
     var heroBtn = document.getElementById("heroWalletBtn");
-    var netChip = document.getElementById("netChip");
     if (state.wallet) {
       btn.textContent = short(state.wallet);
       heroBtn.textContent = "Connected: " + short(state.wallet);
     }
-    netChip.textContent = state.wallet ? (state.chainOk ? "chain: Robinhood ✓" : "chain: wrong network") : "chain: —";
-    netChip.className = "chip" + (state.wallet ? (state.chainOk ? " chip-live" : " chip-warn") : "");
   }
 
   function walletButtonClick() {
