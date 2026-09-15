@@ -65,6 +65,29 @@ pons.family's published docs and the repo's `contract-meta.json`, and the
 `launchToken(...)` function this project calls is a straight read of the
 Solidity source, not a guess.
 
+### Update — switched to pons.family's "v2" factory
+
+The address above (now referred to as "v1") turned out to have its
+on-chain `launchEnabled` flag set to `false`: it only accepts launches from
+wallets pons.family has explicitly added to `whitelistedLaunchers`, which
+is why launches from this site were reverting with a custom error
+(`NotWhitelisted()`) that ethers could only report as an opaque
+`0x584a7938` until the ABI here was updated to decode it.
+
+pons.family's own live launchpad UI (ponsfamily.com/launchpad/create) has a
+"v1"/"v2" toggle. Its "v2" option targets a different factory —
+`0xF4fC0CD27fC8EcF17E55eE4c3f7201897dF3eb75`, an EIP-1967 proxy to a
+verified `PonsLaunchFactory` implementation. Same trust rule as above: this
+address was found in pons.family's own live production JS bundle (paired
+there with its matching locker contract), not in a doc/README/comment, and
+was then independently confirmed on-chain before being used here —
+verified contract source, `launchEnabled() == true`, an enabled DEX config
+and launch config, a matching `launchFee()`, and the identical
+`launchToken(...)` signature as v1. `frontend/index.html`'s
+`FACTORY_ADDRESS` and `lib/ponsFactory.js`'s
+`PONS_LAUNCH_FACTORY_ADDRESS` now both point at v2; the v1 address is kept
+around as `PONS_LAUNCH_FACTORY_ADDRESS_V1_LEGACY` for reference only.
+
 ## Setup
 
 ```bash

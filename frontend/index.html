@@ -703,7 +703,18 @@
   var CHAIN_ID = 4663;
   var CHAIN_ID_HEX = "0x1237";
   var EXPLORER = "https://robinhoodchain.blockscout.com";
-  var FACTORY_ADDRESS = "0xA5aAb3F0c6EeadF30Ef1D3Eb997108E976351feB";
+  // pons.family's "v2" factory — an EIP-1967 proxy to a verified
+  // PonsLaunchFactory implementation with launchEnabled == true (open to
+  // any wallet, no allowlist), unlike the older "v1" factory
+  // (0xA5aAb3F0c6EeadF30Ef1D3Eb997108E976351feB) this used to point at,
+  // which only accepts launches from wallets pons.family has explicitly
+  // whitelisted. Source: pons.family's own live production bundle at
+  // ponsfamily.com/launchpad/create (paired there with its matching locker
+  // contract), independently confirmed on-chain — verified contract,
+  // launchEnabled, an enabled dex + launch config, matching launchFee, and
+  // the same launchToken(...) signature — before being wired in here. See
+  // lib/ponsFactory.js and README.md "Security note" for the full writeup.
+  var FACTORY_ADDRESS = "0xF4fC0CD27fC8EcF17E55eE4c3f7201897dF3eb75";
   // Embedded in every token's on-chain description so anyone viewing it
   // directly on pons.family (not just visitors to this site) can tell it's
   // part of this project, even if this page's own URL isn't public.

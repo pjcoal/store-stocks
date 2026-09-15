@@ -362,6 +362,47 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "whitelistedLaunchers",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  { "inputs": [], "name": "DexDisabled", "type": "error" },
+  { "inputs": [], "name": "FeeTransferFailed", "type": "error" },
+  { "inputs": [], "name": "InvalidBasisPoints", "type": "error" },
+  { "inputs": [], "name": "InvalidDexConfig", "type": "error" },
+  { "inputs": [], "name": "InvalidDexId", "type": "error" },
+  { "inputs": [], "name": "InvalidLaunchConfigId", "type": "error" },
+  { "inputs": [], "name": "InvalidMaxTxBasisPoints", "type": "error" },
+  { "inputs": [], "name": "InvalidTick", "type": "error" },
+  { "inputs": [], "name": "InvalidTokenParams", "type": "error" },
+  { "inputs": [], "name": "LaunchConfigDisabled", "type": "error" },
+  { "inputs": [], "name": "LaunchFeeNotPaid", "type": "error" },
+  { "inputs": [], "name": "NotWhitelisted", "type": "error" },
+  { "inputs": [{ "internalType": "address", "name": "owner", "type": "address" }], "name": "OwnableInvalidOwner", "type": "error" },
+  { "inputs": [{ "internalType": "address", "name": "account", "type": "address" }], "name": "OwnableUnauthorizedAccount", "type": "error" },
+  { "inputs": [], "name": "PoolAlreadyExists", "type": "error" },
+  { "inputs": [], "name": "ReentrancyGuardReentrantCall", "type": "error" },
+  { "inputs": [], "name": "RouterNotSet", "type": "error" },
+  { "inputs": [{ "internalType": "address", "name": "token", "type": "address" }], "name": "SafeERC20FailedOperation", "type": "error" },
+  { "inputs": [], "name": "SupplyTooLow", "type": "error" },
+  { "inputs": [], "name": "TokenDeploymentFailed", "type": "error" },
+  { "inputs": [], "name": "TokenNotFound", "type": "error" },
+  { "inputs": [], "name": "ZeroAddress", "type": "error" },
+  {
     "inputs": [],
     "name": "launchFee",
     "outputs": [
