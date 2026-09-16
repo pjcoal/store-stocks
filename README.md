@@ -19,6 +19,7 @@ and how this repo goes from a `git push` to the live site.
 |---|---|
 | `frontend/index.html` | The site itself — a single self-contained HTML/CSS/JS file (no build step). This is what's deployed to Vercel at storestocks.xyz. |
 | `frontend/assets/logo-128.png` | Source file for the brand mark (the page itself embeds it inline as a data URI, so this is just the editable original). |
+| `frontend/assets/favicon-source.png` | Source file for the browser-tab favicon — same pattern: the page embeds 16px/32px/180px resized copies inline as data URIs (see the `<link rel="icon">` tags right after `<title>`), so this is just the editable original. |
 | `backend/firestore.rules`, `backend/firestore.indexes.json`, `backend/firebase.json` | The real, shared, persistent data store — Firestore, accessed directly from the frontend's Firebase SDK, with these rules as the only enforcement layer (no server process). See `backend/README.md` for one-time setup and deploying the rules. |
 | `lib/ponsFactory.js` | Verified ethers.js client for the real `PonsLaunchFactory` contract. Builds transactions; never signs or sends anything on its own, and hard-blocks a set of "bait" addresses found planted in pons.family's own GitHub repo (see **Security note** below). |
 | `lib/pons-factory-abi.json` | The exact ABI slice needed for launching + reading, pulled from the repo and cross-checked against pons.family's published docs. |
