@@ -591,14 +591,14 @@
 
   <section class="hero" id="map">
     <div>
-      <div class="eyebrow"><span class="dot"></span>Unofficial community tokens · Robinhood chain</div>
+      <div class="eyebrow"><span class="dot"></span>Community tokens · Robinhood chain</div>
       <div class="hero-title display">Map the high street.<br>List it <span class="accent-word">onchain.</span></div>
-      <div class="hero-sub">Store Stocks finds real businesses, stages an unofficial community token for each one on pons.family, and lets the real owner step in later — claim the listing by email, get verified, and connect a payout wallet for accrued fees.</div>
+      <div class="hero-sub">Store Stocks finds real businesses, stages a community token for each one on pons.family, and lets the real owner step in later — claim the listing by email, get verified, and connect a payout wallet for accrued fees.</div>
       <div class="hero-actions">
         <button class="btn btn-accent" onclick="document.getElementById('listings').scrollIntoView({behavior:'smooth'})">Browse listings</button>
         <button class="btn btn-outline" id="heroWalletBtn">Connect wallet to launch</button>
       </div>
-      <div class="hero-legal">Find real-world businesses and launch their unofficial community tokens through pons.family. Business owners can claim their listing, verify ownership, and receive eligible creator fees.</div>
+      <div class="hero-legal">Find real-world businesses and launch their community tokens through pons.family. Business owners can claim their listing, verify ownership, and receive eligible creator fees.</div>
     </div>
 
     <div class="map-panel" id="mapPanel">
@@ -1479,7 +1479,7 @@
     document.getElementById("newBizWebsite").value = "";
     document.getElementById("newBizLogoUrl").value = "";
     document.getElementById("newBizDescription").value = parsed.name
-      ? ("Local business" + (parsed.city ? " in " + parsed.city : "") + ". Unofficial community token — add more detail here if you'd like.")
+      ? ("Local business" + (parsed.city ? " in " + parsed.city : "") + ". Community token — add more detail here if you'd like.")
       : "";
     updateNewBizSymbolPreview();
     updateNewBizLogoPreview();
@@ -1551,7 +1551,7 @@
         name: newBiz.name,
         symbol: deriveSymbol(newBiz.name),
         logo: logoCheck.url,
-        description: newBiz.description + " Unofficial community token launched via " + PROJECT_NAME + " (" + PROJECT_URL + ") — not created by or affiliated with the business.",
+        description: newBiz.description + " Community token launched via " + PROJECT_NAME + " (" + PROJECT_URL + ") — not created by or affiliated with the business.",
         // This factory's token contract stores socials exactly as given
         // (verified against its deployed source — unlike the older
         // contract this project first pointed at, which wiped this field),
@@ -1728,7 +1728,7 @@
     html +=
       '<div class="drawer-section">' +
         '<div class="drawer-section-title">About</div>' +
-        '<div class="drawer-desc">' + esc(b.description || "No description yet.") + ' Unofficial — not created by or affiliated with this business unless claimed.</div>' +
+        '<div class="drawer-desc">' + esc(b.description || "No description yet.") + ' Not created by or affiliated with this business unless claimed.</div>' +
       '</div>';
 
     html +=
@@ -1793,7 +1793,7 @@
         : "";
       row +=
         '<div class="expand-row">' +
-          '<div class="disclaimer-line">' + esc(b.description) + ' Unofficial — not created by or affiliated with this business unless claimed.</div>' +
+          '<div class="disclaimer-line">' + esc(b.description) + ' Not created by or affiliated with this business unless claimed.</div>' +
           (launchedLine ? '<div style="margin-top:6px;">' + launchedLine + '</div>' : '') +
           (b.mapsUrl ? '<div style="margin-top:4px;"><a class="tx-link" href="' + esc(b.mapsUrl) + '" target="_blank" rel="noopener">Google Maps listing ↗</a></div>' : '') +
           (isOpen ? claimPanelHtml(b, claim) : '') +
@@ -2148,7 +2148,7 @@
           name: business.name,
           symbol: deriveSymbol(business.name),
           logo: quickLogoCheck.url,
-          description: business.description + " Unofficial community token launched via " + PROJECT_NAME + " (" + PROJECT_URL + ") — not created by or affiliated with the business.",
+          description: business.description + " Community token launched via " + PROJECT_NAME + " (" + PROJECT_URL + ") — not created by or affiliated with the business.",
           socials: { twitter: PROJECT_X_URL, telegram: "", discord: "", website: PROJECT_URL, farcaster: "" },
           creatorFeeRecipient: PLATFORM_FEE_WALLET,
           creatorTaxBps: CREATOR_TAX_BPS,
