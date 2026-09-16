@@ -247,6 +247,17 @@ Three follow-on asks after the update above:
    Places key embedded in this static frontend is visible to anyone) before
    it should be.
 
+### Update — visual redesign
+
+`frontend/index.html`'s `<style>` block got a full visual pass: same green/black
+palette (every `--accent`/`--bg`/`--ink`/etc. value is unchanged, just used
+more deliberately), bigger and tighter display type on the hero, small mono
+"01–04" index badges on each major section's heading, a faint graph-paper grid
+behind the hero, an accent-colored top edge on the launch card, and a left
+accent bar on hover for table/portfolio rows instead of a flat background
+swap. Purely cosmetic — every element `id` the script relies on, and the
+`<script>` block itself, are byte-for-byte unchanged.
+
 ## Setup
 
 ```bash
