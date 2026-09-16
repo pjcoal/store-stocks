@@ -258,6 +258,18 @@ accent bar on hover for table/portfolio rows instead of a flat background
 swap. Purely cosmetic — every element `id` the script relies on, and the
 `<script>` block itself, are byte-for-byte unchanged.
 
+### Update — micro-interactions, toast notifications, and copy tweak
+
+Smooth-scrolling anchors, a pulsing "live" eyebrow dot, tactile button
+press/loading-pulse animations, and a full toast-notification system that
+replaces every `alert()` in the UI (color-coded ok/warn/error, auto-dismiss,
+manual close, `prefers-reduced-motion`-aware). Also dropped the standalone
+"unofficial" label from the hero copy and generated listing descriptions —
+the actual non-affiliation disclaimers ("not created by or affiliated with
+the business...") are untouched. No IDs removed, one new one added
+(`#toastStack`); `<script>` logic is otherwise unchanged aside from the
+`alert()` → `showToast()` swap and the copy edits.
+
 ## Setup
 
 ```bash

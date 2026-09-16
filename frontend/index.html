@@ -564,6 +564,71 @@
   }
 
   [hidden] { display: none !important; }
+
+  /* ---------- micro-interactions & polish ---------- */
+  html { scroll-behavior: smooth; }
+
+  .eyebrow .dot { animation: dot-pulse 2.2s ease-in-out infinite; }
+
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { animation: btn-pulse 1.4s ease-in-out infinite; }
+
+  @keyframes dot-pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--accent-line); }
+    50% { opacity: 0.6; box-shadow: 0 0 0 4px transparent; }
+  }
+  @keyframes btn-pulse {
+    0%, 100% { opacity: 0.45; }
+    50% { opacity: 0.68; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .eyebrow .dot, .btn:disabled, .toast, .toast.leaving { animation: none !important; }
+    .btn:active { transform: none; }
+  }
+
+  /* ---------- toasts (replaces alert() for non-blocking feedback) ---------- */
+  .toast-stack {
+    position: fixed;
+    bottom: calc(var(--space-5) + env(safe-area-inset-bottom, 0px));
+    right: max(var(--space-5), env(safe-area-inset-right, 0px));
+    display: flex;
+    flex-direction: column-reverse;
+    gap: var(--space-2);
+    z-index: 40;
+    width: min(360px, calc(100vw - 32px));
+    pointer-events: none;
+  }
+  .toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    background: var(--panel);
+    color: var(--ink);
+    border: 1px solid var(--hairline);
+    border-left: 3px solid var(--ink-dim);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    padding: 11px 12px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    animation: toast-in 0.22s var(--ease);
+  }
+  .toast.leaving { animation: toast-out 0.16s var(--ease) forwards; }
+  .toast.ok { border-left-color: var(--accent); }
+  .toast.warn { border-left-color: var(--pending); }
+  .toast.error { border-left-color: var(--danger); }
+  .toast-msg { flex: 1; min-width: 0; word-break: break-word; }
+  .toast-close {
+    flex: none; background: none; border: none; color: var(--ink-dim);
+    cursor: pointer; font-size: 15px; line-height: 1; padding: 0 0 0 2px;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .toast-close:hover { color: var(--ink); }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+  @keyframes toast-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(8px) scale(0.98); } }
 </style>
 
 <nav class="navbar">
@@ -581,6 +646,8 @@
     <button class="btn btn-nav btn-small" id="walletBtn">Connect wallet</button>
   </div>
 </nav>
+
+<div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
 
 <div class="drawer-overlay" id="drawerOverlay"></div>
 <aside class="drawer" id="businessDrawer" aria-hidden="true" aria-label="Business detail">
@@ -893,6 +960,40 @@
   // shared "businesses" db collection so every viewer sees the same set).
   var DEMO_BUSINESSES = [];
 
+  // ---------- toasts (non-blocking replacement for alert()) ----------
+  // Every alert() call below was a blocking browser popup for messages that
+  // don't need to block anything — validation notes, tx confirmations, error
+  // reports. showToast() stacks a dismissible, auto-expiring card in the
+  // corner instead. type is "ok" | "warn" | "error" | omitted (neutral).
+  function showToast(message, type) {
+    var stack = document.getElementById("toastStack");
+    if (!stack) { window.alert(message); return; } // defensive fallback, shouldn't happen
+    var el = document.createElement("div");
+    el.className = "toast" + (type ? " " + type : "");
+    el.setAttribute("role", type === "error" ? "alert" : "status");
+    var msg = document.createElement("span");
+    msg.className = "toast-msg";
+    msg.textContent = message;
+    var close = document.createElement("button");
+    close.type = "button";
+    close.className = "toast-close";
+    close.setAttribute("aria-label", "Dismiss");
+    close.textContent = "×";
+    close.addEventListener("click", function () { dismissToast(el); });
+    el.appendChild(msg);
+    el.appendChild(close);
+    stack.appendChild(el);
+    el._toastTimer = setTimeout(function () { dismissToast(el); }, type === "error" ? 7000 : 5000);
+  }
+  function dismissToast(el) {
+    if (!el || !el.parentNode || el.classList.contains("leaving")) return;
+    clearTimeout(el._toastTimer);
+    el.classList.add("leaving");
+    var remove = function () { if (el.parentNode) el.parentNode.removeChild(el); };
+    el.addEventListener("animationend", remove, { once: true });
+    setTimeout(remove, 300); // fallback in case the animation doesn't fire (e.g. reduced-motion)
+  }
+
   function deriveSymbol(name) {
     var words = name.replace(/[^a-zA-Z ]/g, "").split(/\s+/).filter(Boolean);
     var sym = words.map(function (w) { return w[0]; }).join("").toUpperCase();
@@ -1160,7 +1261,7 @@
   // ---------- wallet ----------
   async function connectWallet() {
     if (!window.ethereum) {
-      alert("No injected wallet found (e.g. MetaMask). Install one to launch real tokens; you can still browse and submit claim requests without it.");
+      showToast("No injected wallet found (e.g. MetaMask). Install one to launch real tokens; you can still browse and submit claim requests without it.", "warn");
       return;
     }
     var browserProvider = new ethers.BrowserProvider(window.ethereum);
@@ -1499,36 +1600,36 @@
 
   document.getElementById("launchNewBtn").addEventListener("click", async function () {
     var btn = this;
-    if (!pendingLaunch) { alert('Paste a Google Maps link and click "Prefill from link" first.'); return; }
+    if (!pendingLaunch) { showToast('Paste a Google Maps link and click "Prefill from link" first.', "warn"); return; }
 
     var name = document.getElementById("newBizName").value.trim();
-    if (!name) { alert("Business name can't be empty."); return; }
+    if (!name) { showToast("Business name can't be empty.", "warn"); return; }
     var category = document.getElementById("newBizCategory").value.trim() || "Local business";
     var city = document.getElementById("newBizCity").value.trim();
     var website = document.getElementById("newBizWebsite").value.trim();
     var description = document.getElementById("newBizDescription").value.trim() || ("Local business" + (city ? " in " + city : "") + ".");
     var logoCheck = validateLogoUrl(document.getElementById("newBizLogoUrl").value);
-    if (!logoCheck.ok) { alert(logoCheck.reason); return; }
+    if (!logoCheck.ok) { showToast(logoCheck.reason, "warn"); return; }
 
     var dupe = allBusinesses().find(function (b) {
       return (pendingLaunch.placeRef && b.placeRef === pendingLaunch.placeRef) ||
              (pendingLaunch.sourceUrl && b.mapsUrl === pendingLaunch.sourceUrl);
     });
     if (dupe) {
-      alert('This business already looks listed as "' + dupe.name + '" — find it in Listings below instead of launching a duplicate.');
+      showToast('This business already looks listed as "' + dupe.name + '" — find it in Listings below instead of launching a duplicate.', "warn");
       return;
     }
 
     if (!state.wallet) { await connectWallet(); if (!state.wallet) return; }
-    if (!state.chainOk) { alert("Switch your wallet to Robinhood Chain first (the connect button attempts this automatically)."); return; }
+    if (!state.chainOk) { showToast("Switch your wallet to Robinhood Chain first (the connect button attempts this automatically).", "warn"); return; }
     var signerWallet = state.wallet;
     if (BLOCKED_ADDRESSES.indexOf(signerWallet.toLowerCase()) !== -1) {
-      alert("Refusing to use this address — it matches a known bait address, not your real wallet.");
+      showToast("Refusing to use this address — it matches a known bait address, not your real wallet.", "error");
       return;
     }
 
     var allowedCheck = await checkLaunchAllowed(signerWallet);
-    if (!allowedCheck.ok) { alert(allowedCheck.reason); return; }
+    if (!allowedCheck.ok) { showToast(allowedCheck.reason, "warn"); return; }
 
     var newId = "biz-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     var newBiz = {
@@ -1606,7 +1707,7 @@
       populateRegisterSelect();
       document.getElementById("listings").scrollIntoView({ behavior: "smooth" });
     } catch (err) {
-      alert("Launch failed or was rejected: " + friendlyContractError(err));
+      showToast("Launch failed or was rejected: " + friendlyContractError(err), "error");
     }
     btn.disabled = false;
     btn.textContent = "Connect wallet & launch";
@@ -2008,10 +2109,10 @@
     if (action === "submit-claim") {
       var emailEl = document.getElementById("email-" + id);
       var email = emailEl ? emailEl.value.trim() : "";
-      if (!isPlausibleEmail(email)) { alert("Enter a valid email address first."); return; }
+      if (!isPlausibleEmail(email)) { showToast("Enter a valid email address first.", "warn"); return; }
       var noteEl = document.getElementById("note-" + id);
       var note = noteEl ? noteEl.value.trim() : "";
-      if (!db) { alert("Shared claim storage isn't available in this view, so the request can't be recorded. Try reopening the page."); return; }
+      if (!db) { showToast("Shared claim storage isn't available in this view, so the request can't be recorded. Try reopening the page.", "error"); return; }
       target.disabled = true;
       try {
         var biz = allBusinesses().find(function (x) { return x.id === id; });
@@ -2023,9 +2124,9 @@
           note: note,
           requestedAt: new Date().toISOString()
         });
-        alert("Claim request submitted for " + email + ". No verification email is actually sent by this demo page — a person reviews the queue below and confirms it manually.");
+        showToast("Claim request submitted for " + email + ". No verification email is actually sent by this demo page — a person reviews the queue below and confirms it manually.", "ok");
       } catch (err) {
-        alert("Couldn't submit the claim: " + (err && err.message ? err.message : err));
+        showToast("Couldn't submit the claim: " + (err && err.message ? err.message : err), "error");
       }
       target.disabled = false;
       return;
@@ -2037,7 +2138,7 @@
       try {
         await db.doc("claims/" + id).update({ status: "claimed", reviewedAt: new Date().toISOString() });
       } catch (err) {
-        alert("Couldn't update the claim: " + (err && err.message ? err.message : err));
+        showToast("Couldn't update the claim: " + (err && err.message ? err.message : err), "error");
       }
       target.disabled = false;
       return;
@@ -2050,7 +2151,7 @@
       try {
         await db.doc("claims/" + id).update({ status: "dismissed", reviewedAt: new Date().toISOString() });
       } catch (err) {
-        alert("Couldn't dismiss the claim: " + (err && err.message ? err.message : err));
+        showToast("Couldn't dismiss the claim: " + (err && err.message ? err.message : err), "error");
       }
       target.disabled = false;
       return;
@@ -2059,9 +2160,9 @@
     if (action === "set-payout-wallet") {
       var payoutEl = document.getElementById("payout-" + id);
       var payoutWallet = payoutEl ? payoutEl.value.trim() : "";
-      if (!ethers.isAddress(payoutWallet)) { alert("That doesn't look like a valid wallet address."); return; }
+      if (!ethers.isAddress(payoutWallet)) { showToast("That doesn't look like a valid wallet address.", "warn"); return; }
       if (BLOCKED_ADDRESSES.indexOf(payoutWallet.toLowerCase()) !== -1) {
-        alert("Refusing to save this address — it matches a known bait address, not a real payout wallet.");
+        showToast("Refusing to save this address — it matches a known bait address, not a real payout wallet.", "error");
         return;
       }
       if (!db) return;
@@ -2069,7 +2170,7 @@
       try {
         await db.doc("claims/" + id).update({ payoutWallet: payoutWallet, payoutWalletSetAt: new Date().toISOString() });
       } catch (err) {
-        alert("Couldn't save the payout wallet: " + (err && err.message ? err.message : err));
+        showToast("Couldn't save the payout wallet: " + (err && err.message ? err.message : err), "error");
       }
       target.disabled = false;
       return;
@@ -2080,8 +2181,8 @@
       var bizEl = document.getElementById("registerBusiness");
       var txHash = hashEl ? hashEl.value.trim() : "";
       var bizId = bizEl ? bizEl.value : "";
-      if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) { alert("That doesn't look like a transaction hash."); return; }
-      if (!bizId) { alert("Pick which listing this launch belongs to."); return; }
+      if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) { showToast("That doesn't look like a transaction hash.", "warn"); return; }
+      if (!bizId) { showToast("Pick which listing this launch belongs to.", "warn"); return; }
       target.disabled = true;
       target.textContent = "Checking chain…";
       try {
@@ -2107,10 +2208,10 @@
           launchedAt: new Date().toISOString(),
           registeredManually: true
         });
-        alert("Registered — verified on-chain against the real factory contract and added to this listing.");
+        showToast("Registered — verified on-chain against the real factory contract and added to this listing.", "ok");
         if (hashEl) hashEl.value = "";
       } catch (err) {
-        alert("Couldn't register that launch: " + (err && err.message ? err.message : err));
+        showToast("Couldn't register that launch: " + (err && err.message ? err.message : err), "error");
       }
       target.disabled = false;
       target.textContent = "Register launch";
@@ -2120,22 +2221,22 @@
     if (action === "launch") {
       if (!business) return;
       if (!state.wallet) { await connectWallet(); if (!state.wallet) return; }
-      if (!state.chainOk) { alert("Switch your wallet to Robinhood Chain first (the connect button attempts this automatically)."); return; }
+      if (!state.chainOk) { showToast("Switch your wallet to Robinhood Chain first (the connect button attempts this automatically).", "warn"); return; }
 
       var signerWallet = state.wallet;
       if (BLOCKED_ADDRESSES.indexOf(signerWallet.toLowerCase()) !== -1) {
-        alert("Refusing to use this address — it matches a known bait address, not your real wallet.");
+        showToast("Refusing to use this address — it matches a known bait address, not your real wallet.", "error");
         return;
       }
 
       var allowedCheck2 = await checkLaunchAllowed(signerWallet);
-      if (!allowedCheck2.ok) { alert(allowedCheck2.reason); return; }
+      if (!allowedCheck2.ok) { showToast(allowedCheck2.reason, "warn"); return; }
 
       var quickLogoCheck = validateLogoUrl(window.prompt(
         "Optional: paste a direct https:// image link to use as " + business.name + "'s token logo (leave blank to skip):",
         ""
       ) || "");
-      if (!quickLogoCheck.ok) { alert(quickLogoCheck.reason); return; }
+      if (!quickLogoCheck.ok) { showToast(quickLogoCheck.reason, "warn"); return; }
 
       target.disabled = true;
       target.textContent = "Reading config…";
@@ -2183,7 +2284,7 @@
         renderPortfolio();
         renderLaunchLog();
       } catch (err) {
-        alert("Launch failed or was rejected: " + friendlyContractError(err));
+        showToast("Launch failed or was rejected: " + friendlyContractError(err), "error");
         target.disabled = false;
         target.textContent = "Launch";
       }
